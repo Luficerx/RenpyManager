@@ -288,50 +288,7 @@ style quick_button_text:
 ## to other menus, and to start the game.
 
 screen navigation():
-
-    vbox:
-        style_prefix "navigation"
-
-        xpos gui.navigation_xpos
-        yalign 0.5
-
-        spacing gui.navigation_spacing
-
-        if main_menu:
-
-            textbutton _("Start") action Start()
-
-        else:
-
-            textbutton _("History") action ShowMenu("history")
-
-            textbutton _("Save") action ShowMenu("save")
-
-        textbutton _("Load") action ShowMenu("load")
-
-        textbutton _("Preferences") action ShowMenu("preferences")
-
-        if _in_replay:
-
-            textbutton _("End Replay") action EndReplay(confirm=True)
-
-        elif not main_menu:
-
-            textbutton _("Main Menu") action MainMenu()
-
-        textbutton _("About") action ShowMenu("about")
-
-        if renpy.variant("pc") or (renpy.variant("web") and not renpy.variant("mobile")):
-
-            ## Help isn't necessary or relevant to mobile devices.
-            textbutton _("Help") action ShowMenu("help")
-
-        if renpy.variant("pc"):
-
-            ## The quit button is banned on iOS and unnecessary on Android and
-            ## Web.
-            textbutton _("Quit") action Quit(confirm=not main_menu)
-
+    pass
 
 style navigation_button is gui_button
 style navigation_button_text is gui_button_text
@@ -357,25 +314,7 @@ screen main_menu():
 
     add gui.main_menu_background
 
-    ## This empty frame darkens the main menu.
-    frame:
-        style "main_menu_frame"
-
-    ## The use statement includes another screen inside this one. The actual
-    ## contents of the main menu are in the navigation screen.
-    use navigation
-
-    if gui.show_name:
-
-        vbox:
-            style "main_menu_vbox"
-
-            text "[config.name!t]":
-                style "main_menu_title"
-
-            text "[config.version]":
-                style "main_menu_version"
-
+    use manager_projects_viewer
 
 style main_menu_frame is empty
 style main_menu_vbox is vbox
