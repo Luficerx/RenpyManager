@@ -29,13 +29,10 @@ init python in RenpyManager:
     from __future__ import annotations
     from renpy.store import Action, persistent, const
     from renpy import config
-    import os, re, subprocess, pathlib, shutil
+    import os, re, subprocess, pathlib, shutil, json
 
     # HACK: This is the most satanic way of fixing a renpy system problem.
     SNARKY_PREFIX = "../" * len(list(filter(lambda x: x, config.gamedir.split("/"))))
-
-    if persistent.cached_projects is None:
-        persistent.cached_projects = { }
 
     class ProjectManager():
         def __init__(self):
@@ -44,10 +41,11 @@ init python in RenpyManager:
             self.projects_map = {"projects": [], "renpy": [], "unity": [], "godot": [], "rpgm": []}
             self.engines = {"renpy": True, "unity": True, "godot": False, "rpgm": False}
             self.query = ""
+
+            self.cache_projects = self.get_projects_from_cache()
         
         @property
         def projects(self) -> list:
-            all_projects = sum(self.projects_map.values(), start=[])
             projects = []
 
             for key in self.engines:
@@ -59,6 +57,9 @@ init python in RenpyManager:
 
         def refresh(self):
             renpy.restart_interaction()
+
+        def get_all_projects(self) -> list[Project]:
+            return sum(self.projects_map.values(), start=[])
 
         def clear_projects_map(self):
             self.projects_map = {"projects": [], "renpy": [], "unity": [], "godot": [], "rpgm":  []}
@@ -73,8 +74,10 @@ init python in RenpyManager:
                     if value:
                         project = Project()
                         project.path = line
+                        project.engine = "Unknown"
                         project.update()
                         self.projects_map["projects"].append(project)
+                        if line in self.cache_projects: project.setattrs(**self.cache_projects[line])
                         continue
 
                     match symbol:
@@ -90,8 +93,10 @@ init python in RenpyManager:
                                         full_path = os.path.join(path, file)
                                         project = Project()
                                         project.path = full_path
+                                        project.engine = "Unknown"
                                         project.update()
                                         self.projects_map["projects"].append(project)
+                                        if full_path in self.cache_projects: project.setattrs(**self.cache_projects[full_path])
 
                         case "RENPY":
                             project = Project()
@@ -110,6 +115,8 @@ init python in RenpyManager:
                         symbol = current_symbol
                         continue
     
+            self.load_projects_from_cache()
+
         def add_project(self, project: Project, key: str, re_match):
             if re_match:
                 path = re_match.group(1)
@@ -121,28 +128,51 @@ init python in RenpyManager:
 
                 project.update()
                 self.projects_map[key].append(project)
+                if path in self.cache_projects: project.setattrs(**self.cache_projects[path])
         
-        def has_project(self, project):
-            return (project in sum(self.projects_map.values(), start=[]))
+        def get_projects_from_cache(self) -> dict:
+            with open(os.path.join(config.basedir, "cache_projects.json"), "a+") as fl:
+                fl.seek(0)
+                try:
+                    cache_projects = json.load(fl)
+                
+                except:
+                    cache_projects = {}
+            
+            return cache_projects
+
+        def load_projects_from_cache(self):
+            for project in self.get_all_projects():
+                if project.path in self.cache_projects:
+                    project.setattrs(**self.cache_projects[project.path])
+
+        def save_projects_to_cache(self):
+            for project in self.get_all_projects():
+                self.cache_projects[project.path] = vars(project)
+
+        def has_project(self, project) -> bool:
+            return project in self.get_all_projects()
 
     class Project():
         def __init__(self):
             self.name = "Unknown"
-            self.path = None
             self.description = "No Description Given."
-            self.stars = 0.0
+
             self.version = "Unknown"
-            self.args = ""
-            self.engine = None
-            self.selected = False
-            self.execute_mode = None
-            self.executers = {"custom": ""}
+            self.path = None
+            
+            self.stars = 0.0
             self.pin = False
+
+            self.executers = {"custom": ""}
+            self.execute_mode = None
+            self.engine = None
+            self.args = ""
 
             self._logo = "logo_placeholder"
             self._thumbnail = "thumbnail_placeholder"
 
-        def update(self, **kwargs):
+        def setattrs(self, **kwargs):
             for (key, value) in kwargs.items():
                 setattr(self, key, value)
 
@@ -153,14 +183,6 @@ init python in RenpyManager:
             if type(other) is Project:
                 return self.path == other.path
             return False
-
-        @property
-        def execute(self):
-            return self.executers.get(self.execute_mode, "Not Found.")
-
-        @property
-        def execute_s(self):
-            return os.path.basename(self.execute)
 
         def update(self):
             match os.name:
@@ -205,9 +227,9 @@ init python in RenpyManager:
                     elif file == "rm_thumbnail.png":
                         self._thumbnail = os.path.join(rm_folder_path, file)
 
-        @property
-        def caller_exists(self) -> bool:
-            return True
+        def thumbnail_by_engine(self):
+            match self.engine: 
+                case "renpy" | "unity" | "godot" as value: self._thumbnail = f"{value}_thumbnail_placeholder"
     
         @property
         def thumbnail(self) -> str:
@@ -221,11 +243,17 @@ init python in RenpyManager:
                 return (SNARKY_PREFIX + self._logo)
             return self._logo
 
-        def thumbnail_by_engine(self):
-            match self.engine:
-                case "renpy": self._thumbnail = "renpy_thumbnail_placeholder"
-                case "unity": self._thumbnail = "unity_thumbnail_placeholder"
-                case "godot": self._thumbnail = "godot_thumbnail_placeholder"
+        @property
+        def execute(self):
+            return self.executers.get(self.execute_mode, "Not Found.")
+
+        @property
+        def execute_s(self):
+            return os.path.basename(self.execute)
+
+        @property
+        def caller_exists(self) -> bool:
+            return True
 
     class Execute(Action):
         def __init__(self, project: Project, mode: str = "launch"):
@@ -254,9 +282,6 @@ init python in RenpyManager:
 
         def get_sensitive(self) -> bool:
             return self.project.caller_exists
-
-        def get_selected(self) -> bool:
-            return self.project.selected
     
     class RefreshManager(Action):
         def __call__(self):
@@ -269,17 +294,21 @@ init python in RenpyManager:
     class CacheProjects(Action):
         def __call__(self):
             renpy.notify("Saving projects...")
+            Manager.save_projects_to_cache()
+            with open(os.path.join(config.basedir, "cache_projects.json"), "w+") as fl:
+                json.dump(Manager.cache_projects, fl, indent=4)
 
     class SetProjectExecutable(Action):
         def __init__(self, project: Project, name: str, executable_path: str):
             self.executable_path = executable_path
             self.project = project
             self.name = name
-        
+
         def __call__(self):
             self.project.executers["custom"] = self.executable_path
             self.project.execute_mode = "custom"
             self.project.name = pathlib.Path(self.name).stem
+            Manager.cache_projects[self.project.path] = vars(self.project)
             renpy.restart_interaction()
 
     def FetchExecutables(project: Project) -> list[tuple[str, str]]:

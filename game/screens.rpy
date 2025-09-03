@@ -314,7 +314,7 @@ screen main_menu():
 
     add gui.main_menu_background
 
-    use manager_projects_viewer
+    use RMProjectViewer
 
 style main_menu_frame is empty
 style main_menu_vbox is vbox

@@ -45,6 +45,30 @@ init python early:
 
             return rv
     
+    class AlphaGradientMask(renpy.Displayable):
+        def __init__(self, image: str | None, direction=1, start=1.0, end=0.0, force=1, **kwargs):
+            super(AlphaGradientMask, self).__init__(**kwargs)
+            self.image = Transform(image)
+            self.start = start
+            self.end = end
+
+            self.direction = direction
+            self.force = force
+
+        def render(self, w, h, st, at):
+            
+            child_rv = renpy.render(self.image, w, h, st, at)
+
+            child_rv.add_shader("2DVfx.alpha_gradient")
+            child_rv.mesh = True
+            child_rv.add_uniform("u_alpha_start", self.start)
+            child_rv.add_uniform("u_alpha_end", self.end)
+
+            child_rv.add_uniform("u_direction", self.direction)
+            child_rv.add_uniform("u_force", self.force)
+
+            return child_rv
+
     class RoundedImage(renpy.Displayable):
         def __init__(self, image: str | None = None, size: tuple[int, int] = (None, None), radius: int | float | tuple[float] = (10, 10, 10, 10), alias: float = 1.0, **kwargs):
             """
@@ -75,7 +99,7 @@ init python early:
             rv = renpy.Render(*self.size)
             
             rv_child = self.image.render(w, h, st, at)
-            rv.add_shader("test")
+            rv.add_shader("2DVfx.round_mask")
             rv.mesh = True
 
             rv.add_uniform("u_radius", self.radius)

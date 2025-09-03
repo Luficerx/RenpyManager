@@ -30,6 +30,14 @@ image icon_reload_hover:
     matrixcolor ColorizeMatrix(persistent.rm_ui_color, "#FFFFFF")
     "images/icons/reload_icon.png"
 
+image icon_save_idle:
+    alpha 0.5
+    "icon_save_hover"
+
+image icon_save_hover:
+    matrixcolor ColorizeMatrix(persistent.rm_ui_color, "#FFFFFF")
+    "images/icons/save_icon.png"
+
 image icon_play_idle:
     alpha 0.5
     "icon_play_hover"
@@ -50,13 +58,17 @@ image icon_filter:
     matrixcolor ColorizeMatrix(persistent.rm_ui_color, "#FFFFFF") xysize (30, 30) alpha 0.3
     "images/icons/filter_icon.png"
 
-image icon_star_fav:
+image icon_pin_idle:
+    alpha 0.5
+    "icon_pin_hover"
+
+image icon_pin_hover:
     matrixcolor ColorizeMatrix(persistent.rm_ui_color, "#FFFFFF")
-    "images/icons/star_icon.png"
+    "images/icons/pin_icon.png"
 
 image bar_stars:
-    matrixcolor ColorizeMatrix("#FFFFFF", persistent.rm_ui_color) xysize (250, 46)
-    "images/icons/stars_bar.png"
+    matrixcolor ColorizeMatrix("#FFFFFF", persistent.rm_ui_color)
+    "images/icons/stars.png"
 
 image thumbnail_placeholder = Fixed(Gradient(), Transform("images/logos/placeholder_logo.png", align=(0.5, 0.5), matrixcolor=ColorizeMatrix("#ACACAC", "000"), zoom=0.4))
 image logo_placeholder = Transform("images/logos/placeholder_logo.png", align=(0.5, 0.5), matrixcolor=ColorizeMatrix("#ACACAC", "000"), zoom=0.5)

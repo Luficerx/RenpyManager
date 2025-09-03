@@ -20,6 +20,7 @@
 /save_dump.txt
 /traceback.txt
 /projects.txt
+/cache_projects.json
 
 # Launcher-generated files.
 /dialogue.tab

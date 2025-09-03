@@ -1,9 +1,10 @@
-screen manager_projects_viewer():
+screen RMProjectViewer():
     default query = FieldInputValue(RenpyManager.Manager, "query", default=False)
     default Manager = RenpyManager.Manager
     default mode = "lib"
 
     dismiss action query.Disable()
+
     add rm_background
 
     if mode == "lib":
@@ -16,10 +17,16 @@ screen manager_projects_viewer():
                 idle Transform("icon_help_idle", xysize=(40, 40)) hover Transform("icon_help_hover", xysize=(40, 40))
                 action Show("RMAbout", transition=Dissolve(0.2))
 
-            imagebutton:
-                yalign 0.5 xoffset 10
-                idle Transform("icon_reload_idle", xysize=(40, 40)) hover Transform("icon_reload_hover", xysize=(40, 40))
-                action RenpyManager.RefreshManager()
+            hbox:
+                yalign 0.5 xoffset 10 spacing 10
+
+                imagebutton:
+                    idle Transform("icon_reload_idle", xysize=(40, 40)) hover Transform("icon_reload_hover", xysize=(40, 40))
+                    action RenpyManager.RefreshManager()
+
+                imagebutton:
+                    idle Transform("icon_save_idle", xysize=(40, 40)) hover Transform("icon_save_hover", xysize=(40, 40))
+                    action RenpyManager.CacheProjects()
 
             hbox:
                 align (0.5, 0.5) spacing 10
@@ -44,7 +51,7 @@ screen manager_projects_viewer():
                     xysize (250, 250) align (0.5, 0.5)
                     background RoundedImage(project.thumbnail, (250, 250), 20, 1)
                     if project.pin:
-                        add "icon_star_fav" xysize (40, 40) align (1.0, 0.0) alpha 0.25
+                        add "icon_pin_hover" xysize (40, 40) align (1.0, 0.0) alpha 0.5 zoom 0.75
 
                     imagebutton:
                         idle Transform("icon_play_idle", xysize=(40, 40)) hover Transform("icon_play_hover", xysize=(40, 40))
@@ -57,16 +64,32 @@ screen manager_projects_viewer():
             frame:
                 align (0.5, 0.0) yoffset 100 xysize (1025, 380) padding (7, 7)
                 background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), (1025, 380), 20, trans_alpha=0.2)
-                add RoundedImage(Manager.project.thumbnail, (370, 370), 20) yalign 0.5
+                fixed:
+                    xysize (372, 371) yalign 0.5
+                    add RoundedImage(Manager.project.thumbnail, (370, 370), 20) align (0.5, 0.5)
+                    add AlphaGradientMask(RoundedImage("black", (372, 371), 20), direction=4, force=0.4) align (0.5, 0.5)
+
+                    fixed:
+                        xysize (181, 35) align (0.5, 1.0) yoffset -5
+                        add "bar_stars" align (0.5, 0.5) alpha 0.25
+                        bar:
+                            left_bar "bar_stars" right_bar None xysize (181, 35) align (0.5, 0.5)
+                            value FieldValue(Manager.project, "stars", 5.0, force_step=0.5)
 
                 frame:
-                    background None xysize (620, 370) align (1.0, 0.5) xoffset -8
+                    background None xysize (628, 370) align (1.0, 0.5)
                     vbox:
                         spacing 5
                         text Manager.project.name size 50 style "rm_title_text_bold"
                         text Manager.project.engine size 28 style "rm_text_bold"
                         null height 3
                         text Manager.project.description style "rm_text" size 24
+
+                    imagebutton:
+                        idle Transform("icon_pin_idle", xysize=(30, 30)) hover Transform("icon_pin_hover", xysize=(30, 30))
+                        selected_idle Transform("icon_pin_hover", xysize=(30, 30))
+                        action ToggleField(Manager.project, "pin", True, False)
+                        xalign 1.0
                         
                     textbutton "Launch" align (1.0, 1.0) text_size 45:
                         text_font "fonts/Luis Georce Cafe/Louis George Cafe Bold.ttf"
@@ -82,7 +105,7 @@ screen manager_projects_viewer():
             background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), (1025, 1025), 20, trans_alpha=0.2)
 
             vbox:
-                add RoundedImage(project.thumbnail, (370, 370), 20) yalign 0.0
+                add RoundedImage(Manager.project.thumbnail, (370, 370), 20) yalign 0.0
                 spacing 20
                 hbox:
                     xoffset 10
