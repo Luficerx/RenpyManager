@@ -9,6 +9,21 @@ init python in const:
     RPGM = ("RPGM", r"^@rpgm:")
 
     SYMBOLS = (FOLDER, RENPY, UNITY, GODOT, RPGM)
+    IGNORE_FMT = (".txt",)
+
+    THUMBNAIL_PLACEHOLDERS = (
+        "thumbnail_placeholder",
+        "renpy_thumbnail_placeholder",
+        "unity_thumbnail_placeholder",
+        "godot_thumbnail_placeholder"
+    )
+
+    LOGOS_PLACEHOLDERS = (
+        "logo_placeholder",
+        "renpy_logo_placeholder",
+        "unity_logo_placeholder",
+        "godot_logo_placeholder"
+    )
 
 init python in RenpyManager:
     from __future__ import annotations
@@ -24,9 +39,11 @@ init python in RenpyManager:
 
     class ProjectManager():
         def __init__(self):
+            self.project = None
+
             self.projects_map = {"projects": [], "renpy": [], "unity": [], "godot": [], "rpgm": []}
-            self.engines = {"renpy": True, "unity": False, "godot": False, "rpgm": False}
-            self.query_input = ""
+            self.engines = {"renpy": True, "unity": True, "godot": False, "rpgm": False}
+            self.query = ""
         
         @property
         def projects(self) -> list:
@@ -36,7 +53,7 @@ init python in RenpyManager:
             for key in self.engines:
                 if self.engines[key]: projects.extend(self.projects_map[key])
 
-            projects = [p for p in projects if self.query_input in p.name]
+            projects = [p for p in projects if self.query in p.name]
 
             return projects
 
@@ -48,6 +65,7 @@ init python in RenpyManager:
 
         def find_projects(self):
             with open(os.path.join(config.basedir, "projects.txt"), "a+") as fl:
+                fl.seek(0)
                 symbol = None
 
                 for line in filter_paths(fl.readlines()):
@@ -103,6 +121,9 @@ init python in RenpyManager:
 
                 project.update()
                 self.projects_map[key].append(project)
+        
+        def has_project(self, project):
+            return (project in sum(self.projects_map.values(), start=[]))
 
     class Project():
         def __init__(self):
@@ -115,10 +136,11 @@ init python in RenpyManager:
             self.engine = None
             self.selected = False
             self.execute_mode = None
-            self.executers = {}
+            self.executers = {"custom": ""}
+            self.pin = False
 
-            self._icon = None
-            self._thumbnail = None
+            self._logo = "logo_placeholder"
+            self._thumbnail = "thumbnail_placeholder"
 
         def update(self, **kwargs):
             for (key, value) in kwargs.items():
@@ -127,9 +149,18 @@ init python in RenpyManager:
         def __repr__(self):
             return self.name
 
+        def __eq__(self, other):
+            if type(other) is Project:
+                return self.path == other.path
+            return False
+
         @property
         def execute(self):
-            return self.executers.get(self.execute_mode, "")
+            return self.executers.get(self.execute_mode, "Not Found.")
+
+        @property
+        def execute_s(self):
+            return os.path.basename(self.execute)
 
         def update(self):
             match os.name:
@@ -164,18 +195,15 @@ init python in RenpyManager:
             else:
                 rm_folder_path = os.path.join(self.path, "rm_project")
 
+            self.thumbnail_by_engine()
+
             if os.path.exists(rm_folder_path):
                 for file in os.listdir(rm_folder_path):
                     if file == "icon.png":
-                        self._icon = os.path.join(rm_folder_path, file)
-                        if os.name == "posix":
-                            self._icon = SNARKY_PREFIX + self.icon
+                        self._logo = os.path.join(rm_folder_path, file)
 
                     elif file == "rm_thumbnail.png":
                         self._thumbnail = os.path.join(rm_folder_path, file)
-
-            if self._thumbnail is None:
-                self._thumbnail = "gradient_1"
 
         @property
         def caller_exists(self) -> bool:
@@ -183,37 +211,44 @@ init python in RenpyManager:
     
         @property
         def thumbnail(self) -> str:
-            if os.name == "posix" and self._icon is not None:
-                return self.snarky_pref(self._thumbnail)
+            if persistent.rm_snark_hack and os.name == "posix" and self._thumbnail not in const.THUMBNAIL_PLACEHOLDERS:
+                return (SNARKY_PREFIX + self._thumbnail)
             return self._thumbnail
 
         @property
-        def icon(self) -> str:
-            if os.name == "posix" and self._icon is not None:
-                return self.snarky_pref(self._icon)
-            return self._icon
+        def logo(self) -> str:
+            if persistent.rm_snark_hack and os.name == "posix" and self._logo not in const.LOGOS_PLACEHOLDERS:
+                return (SNARKY_PREFIX + self._logo)
+            return self._logo
 
-        def snarky_pref(self, line: str):
-            if persistent.rm_snark_hack:
-                return SNARKY_PREFIX + line
-            return line
+        def thumbnail_by_engine(self):
+            match self.engine:
+                case "renpy": self._thumbnail = "renpy_thumbnail_placeholder"
+                case "unity": self._thumbnail = "unity_thumbnail_placeholder"
+                case "godot": self._thumbnail = "godot_thumbnail_placeholder"
 
-    class LaunchAction(Action):
-        def __init__(self, project: Project):
+    class Execute(Action):
+        def __init__(self, project: Project, mode: str = "launch"):
             self.project = project
+            self.mode = mode
 
         def __call__(self):
-            try:
-                cmd = [self.project.execute]
+            match self.mode:
+                case "launch":
+                    try:
+                        cmd = [self.project.execute]
 
-                process = subprocess.Popen(cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                )
+                        process = subprocess.Popen(cmd,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            text=True,
+                        )
 
-            except:
-                renpy.notify("Could not launch project.")
+                    except:
+                        renpy.notify("Could not launch project.")
+
+                case "pin":
+                    self.project.pin = not self.project.pin
 
             renpy.restart_interaction()
 
@@ -227,27 +262,64 @@ init python in RenpyManager:
         def __call__(self):
             Manager.clear_projects_map()
             Manager.find_projects()
+            if Manager.project is not None and not Manager.has_project(Manager.project):
+                Manager.project = None
             renpy.restart_interaction()
 
     class CacheProjects(Action):
         def __call__(self):
             renpy.notify("Saving projects...")
-            
+
+    class SetProjectExecutable(Action):
+        def __init__(self, project: Project, name: str, executable_path: str):
+            self.executable_path = executable_path
+            self.project = project
+            self.name = name
+        
+        def __call__(self):
+            self.project.executers["custom"] = self.executable_path
+            self.project.execute_mode = "custom"
+            self.project.name = pathlib.Path(self.name).stem
+            renpy.restart_interaction()
+
+    def FetchExecutables(project: Project) -> list[tuple[str, str]]:
+        items = []
+
+        def skip_file(file):
+            for fmt in const.IGNORE_FMT:
+                if file.endswith(fmt):
+                    return True
+
+        match os.name:
+            case "nt":
+                pass
+
+            case "posix":
+                files = os.listdir(project.path)
+                for file in files:
+                    if skip_file(file): continue
+                    
+                    file_path = os.path.join(project.path, file)
+                    if os.path.isfile(file_path) and os.access(file_path, os.X_OK):
+                        items.append((file, file_path))
+
+        return items
+
     def filter_paths(lines: list[str]) -> list[str]:
         return [x.rstrip() for x in lines if (not match(r"\s+$", x) and not match(const.COMMENT, x))]
     
-    def match2(pattern: str, line: str):
-        return re.match(pattern, line)
-
-    def match(pattern: str, line: str) -> bool:
-        return re.match(pattern, line) is not None
-
     def matchs(patterns: tuple[str], line: str, old_symbol) -> str | None:
         for (key, pattern) in patterns:
             if match(pattern, line):
                 return key
 
         return old_symbol
+
+    def match(pattern: str, line: str) -> bool:
+        return re.match(pattern, line) is not None
+
+    def match2(pattern: str, line: str):
+        return re.match(pattern, line)
 
     Manager = ProjectManager()
     Manager.find_projects()

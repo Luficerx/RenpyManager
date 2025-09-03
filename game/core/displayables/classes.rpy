@@ -1,4 +1,4 @@
-init python:
+init python early:
     class Gradient(renpy.Displayable):
         def __init__(self, size: tuple[int, int] = None, colors: tuple[str, str, str, str] = ("#282828", "#282828", "#0e0e0e", "#0e0e0e"), *args, **kwargs):
             """
@@ -12,6 +12,16 @@ init python:
 
             self.size = size
             self.top_left, self.top_right, self.bottom_left, self.bottom_right = validate_gradient_colors(colors)
+
+        def __eq__(self, other):
+            if type(other) is Gradient:
+                return all([
+                    self.top_left == other.top_left,
+                    self.top_right == other.top_right,
+                    self.bottom_left == other.bottom_left,
+                    self.bottom_right == other.bottom_right
+                ])
+            return False
 
         def render(self, w, h, st, at):
             size = (w, h)
@@ -36,7 +46,7 @@ init python:
             return rv
     
     class RoundedImage(renpy.Displayable):
-        def __init__(self, image: str | None = None, size: tuple[int, int] = None, radius: int | float | tuple[float] = (10, 10, 10, 10), alias: float = 1.0, **kwargs):
+        def __init__(self, image: str | None = None, size: tuple[int, int] = (None, None), radius: int | float | tuple[float] = (10, 10, 10, 10), alias: float = 1.0, **kwargs):
             """
             This creates a rounded borders around the image.
 
