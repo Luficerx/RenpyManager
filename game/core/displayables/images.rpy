@@ -70,6 +70,16 @@ image bar_stars:
     matrixcolor ColorizeMatrix("#FFFFFF", persistent.rm_ui_color)
     "images/icons/stars.png"
 
+image checker_icon_off:
+    matrixcolor ColorizeMatrix("#FFFFFF", persistent.rm_ui_color)
+    "images/icons/checker_off_icon.png"
+    yalign 0.5 xysize (26, 26)
+
+image checker_icon_on:
+    matrixcolor ColorizeMatrix("#FFFFFF", persistent.rm_ui_color)
+    "images/icons/checker_on_icon.png"
+    yalign 0.5 xysize (26, 26)
+
 image thumbnail_placeholder = Fixed(Gradient(), Transform("images/logos/placeholder_logo.png", align=(0.5, 0.5), matrixcolor=ColorizeMatrix("#ACACAC", "000"), zoom=0.4))
 image logo_placeholder = Transform("images/logos/placeholder_logo.png", align=(0.5, 0.5), matrixcolor=ColorizeMatrix("#ACACAC", "000"), zoom=0.5)
 

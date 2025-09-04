@@ -1,0 +1,14 @@
+# This file is used as extra options or the use to inclde
+# For different engines include their name under @engines directive.
+
+# @engines:
+#     wolfrpg
+
+# For different tags include their names under @tags directive
+
+# @tags:
+#     eye fuck
+
+@engines:
+
+@tags:

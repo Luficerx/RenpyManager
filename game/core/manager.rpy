@@ -39,21 +39,78 @@ init python in RenpyManager:
             self.project = None
 
             self.projects_map = {"projects": [], "renpy": [], "unity": [], "godot": [], "rpgm": []}
-            self.engines = {"renpy": True, "unity": True, "godot": False, "rpgm": False}
             self.query = ""
 
             self.cache_projects = self.get_projects_from_cache()
+            self.stars_query = 0.0
         
+        @property
+        def engines(self) -> dict[str, bool]:
+            return persistent.rm_engines
+
+        @engines.setter
+        def engines(self, value: dict[str, bool]) -> dict[str, bool]:
+            persistent.rm_engines = value
+
+        @property
+        def others(self):
+            return persistent.rm_others
+
+        @property
+        def tags(self) -> dict[str, bool]:
+            return persistent.rm_tags
+
+        @property
+        def tags_az(self) -> list[str]:
+            a = list(persistent.rm_tags)
+            a.sort()
+            return a
+
+        @tags.setter
+        def tags(self, value: dict[str, bool]) -> dict[str, bool]:
+            persistent.rm_tags = value
+            
         @property
         def projects(self) -> list:
             projects = []
+            projects_by_tag = []
+
+            tags = [x for x in self.tags if self.tags[x]]
 
             for key in self.engines:
                 if self.engines[key]: projects.extend(self.projects_map[key])
 
             projects = [p for p in projects if self.query in p.name]
 
+            if self.others["pinned"]:
+                projects = [p for p in projects if p.pinned]
+                
+            if self.others["stars_query"]:
+                projects = [p for p in projects if p.stars == self.stars_query]
+
+            if tags:
+                for project in projects:
+                    for tag in project.tags:
+                        if tag in tags:
+                            projects_by_tag.append(project)
+                            break
+                
+            if projects_by_tag:
+                return projects_by_tag
+
             return projects
+
+        def toggle_all_tags(self):
+            if False in self.tags.values():
+                self.tags = {k: True for k in self.tags}
+            else:
+                self.tags = {k: False for k in self.tags}
+
+        def toggle_all_engines(self):
+            if False in self.engines.values():
+                self.engines = {k: True for k in self.engines}
+            else:
+                self.engines = {k: False for k in self.engines}
 
         def refresh(self):
             renpy.restart_interaction()
@@ -162,7 +219,8 @@ init python in RenpyManager:
             self.path = None
             
             self.stars = 0.0
-            self.pin = False
+            self.pinned = False
+            self.tags = {}
 
             self.executers = {"custom": ""}
             self.execute_mode = None
@@ -276,7 +334,7 @@ init python in RenpyManager:
                         renpy.notify("Could not launch project.")
 
                 case "pin":
-                    self.project.pin = not self.project.pin
+                    self.project.pinned = not self.project.pinned
 
             renpy.restart_interaction()
 
