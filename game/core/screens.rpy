@@ -264,8 +264,13 @@ screen RMAbout():
     add Solid("#000000cd")
     text _("""
     Renpy Manager - v[config.version]
+    
+    Made by Lucy - {a=https://github.com/Luficerx}Luficerx{/a} on Github
 
     Renpy Manager is a simple project that handles game projects
     Mainly focused on renpy games but it tries to support different engines.
+
+    If you encounter any bugs, Have suggestions or other stuff, please submit
+    an issue on Github {a=https://github.com/Luficerx/RenpyManager}RenpyManager{/a}
     """):
         align (0.5, 0.5) size 25 text_align 0.5
