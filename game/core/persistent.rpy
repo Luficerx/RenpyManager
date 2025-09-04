@@ -1,3 +1,6 @@
+# MISC
+default rm_intro = False
+
 # UI
 default persistent.rm_ui_color = "#FFFFFF"
 
