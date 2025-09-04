@@ -263,7 +263,7 @@ screen RMAbout():
 
     add Solid("#000000cd")
     text _("""
-    Renpy Manager - v1.0000
+    Renpy Manager - v[config.version]
 
     Renpy Manager is a simple project that handles game projects
     Mainly focused on renpy games but it tries to support different engines.
