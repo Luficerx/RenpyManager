@@ -90,13 +90,18 @@ init python early:
                 rest_kwargs[key] = value
 
             super(RoundedImage, self).__init__(**rest_kwargs)
+            print(size)
             self.image = Transform(image, xysize=size, **trans_kwargs)
             self.set_radius(radius)
             self.alias = alias
             self.size = size
         
         def render(self, w, h, st, at):
-            rv = renpy.Render(*self.size)
+            size = (w, h)
+            if self.size != (None, None):
+                size = self.size
+
+            rv = renpy.Render(*size)
             
             rv_child = self.image.render(w, h, st, at)
             rv.add_shader("2DVfx.round_mask")

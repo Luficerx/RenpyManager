@@ -1,11 +1,12 @@
 screen RMProjectViewer():
     default Manager = RenpyManager.Manager
-    default query = FieldInputValue(RenpyManager.Manager, "query", default=False)
+    default search_input = FieldInputValue(Manager, "search", default=False)
+    default name_input = FieldInputValue(Manager, "project.name", default=False)
 
     default filter_mode = "tags"
     default mode = "lib"
 
-    dismiss action query.Disable()
+    dismiss action search_input.Disable()
 
     add rm_background
 
@@ -34,9 +35,9 @@ screen RMProjectViewer():
                 align (0.5, 0.5) spacing 10
                 button:
                     background RoundedImage(Solid("#ffffff22"), (300, 40)) xysize (300, 40) yalign 0.5
-                    input value query changed Manager.refresh:
+                    input value search_input changed Manager.refresh:
                         size 25 yalign 0.5 pixel_width 290 yoffset 2
-                    action query.Toggle()
+                    action search_input.Toggle()
 
                 add "icon_filter" yalign 0.5
         
@@ -183,14 +184,24 @@ screen RMProjectViewer():
             background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), (1025, 1025), 20, trans_alpha=0.2)
 
             vbox:
-                add RoundedImage(Manager.project.thumbnail, (370, 370), 20) yalign 0.0
-                spacing 20
+                xpos 385 yoffset 5
                 hbox:
-                    xoffset 10
+                    text "Name: " yalign 0.5
+                    button:
+                        yalign 0.5
+                        input value name_input changed Manager.refresh:
+                            size 27 yalign 0.5 pixel_width 250 yoffset 2
+                        action name_input.Toggle()
+
+                hbox:
                     text "Executable: " yalign 0.5
                     textbutton "[Manager.project.execute_s]":
                         action Show("RMChangeExecutable", project=Manager.project) 
                         selected False yalign 0.5
+
+            vbox:
+                add RoundedImage(Manager.project.thumbnail, (370, 370), 20) yalign 0.0
+                spacing 20
                 
                 vbox:
                     spacing 10
@@ -208,6 +219,20 @@ screen RMProjectViewer():
                                     action If(key in Manager.project.tags, ToggleDict(Manager.project.tags, key, True, False), SetDict(Manager.project.tags, key, True))
                                     text "[key!c]"
                                     xsize 205
+                vbox:
+                    spacing 10
+                    text "Engine" xoffset 8
+                    frame:
+                        background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), radius=20, trans_alpha=0.2)
+                        left_padding 12
+                        vbox:
+                            style_prefix "rm_check" box_wrap True
+                            for key in [x for x in Manager.engines if x != "projects"]:
+                                button:
+                                    action RenpyManager.SetProjectEngine(Manager.project, key)
+                                    text "[key!c]"
+                                    xsize 120
+                                    selected Manager.project.engine == key
 
             textbutton "Return" align (1.0, 1.0) text_size 45:
                 text_font "fonts/Luis Georce Cafe/Louis George Cafe Bold.ttf"
