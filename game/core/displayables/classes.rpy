@@ -90,7 +90,6 @@ init python early:
                 rest_kwargs[key] = value
 
             super(RoundedImage, self).__init__(**rest_kwargs)
-            print(size)
             self.image = Transform(image, xysize=size, **trans_kwargs)
             self.set_radius(radius)
             self.alias = alias

@@ -2,14 +2,12 @@ init python in const:
     PATH = r"^\s*(?!@)([^\[\n]+?)(?:\s*\[([^\]]+)\])?$"
     COMMENT = r"\s*(?<!<)#(?!>).*"
 
-    FOLDER = ("FOLDER", r"^@folder:")
-    RENPY = ("RENPY", r"^@renpy:")
-    UNITY = ("UNITY", r"^@unity:")
-    GODOT = ("GODOT", r"^@godot:")
-    RPGM = ("RPGM", r"^@rpgm:")
+    DIRECTIVES = ("projects", "renpy", "unity", "unreal", "godot", "rpgm")
+    
+    SYMBOLS = tuple([(x.upper(), fr"^@{x}:") for x in DIRECTIVES])
 
-    SYMBOLS = (FOLDER, RENPY, UNITY, GODOT, RPGM)
-    IGNORE_FMT = (".txt",)
+    IGNORE_NAME = ("notification_helper", "crashpad_handler")
+    VALID_FMT = ("exe", "sh", "py")
 
     THUMBNAIL_PLACEHOLDERS = (
         "thumbnail_placeholder",
@@ -38,7 +36,7 @@ init python in RenpyManager:
         def __init__(self):
             self.project = None
 
-            self.projects_map = {"projects": [], "renpy": [], "unity": [], "godot": [], "rpgm": []}
+            self.projects_map = {"projects": [], "renpy": [], "unity": [], "godot": [], "rpgm": [], "unreal": []}
             self.search = ""
 
             self.cache_projects = self.get_projects_from_cache()
@@ -119,27 +117,29 @@ init python in RenpyManager:
             return sum(self.projects_map.values(), start=[])
 
         def clear_projects_map(self):
-            self.projects_map = {"projects": [], "renpy": [], "unity": [], "godot": [], "rpgm":  []}
+            self.projects_map = {key: [] for key in const.DIRECTIVES}
 
         def find_projects(self):
             with open(os.path.join(config.basedir, "projects.txt"), "a+") as fl:
                 fl.seek(0)
                 symbol = None
 
-                for line in filter_paths(fl.readlines()):
-                    value = os.path.isdir(line)
-                    if value:
+                for path in filter_paths(fl.readlines()):
+                    is_dir = os.path.isdir(path)
+
+                    if is_dir:
                         project = Project()
-                        project.path = line
-                        project.engine = "Unknown"
+                        project.path = path
                         project.update()
-                        self.projects_map["projects"].append(project)
-                        if line in self.cache_projects: project.setattrs(**self.cache_projects[line])
+
+                        if path in self.cache_projects: project.setattrs(**self.cache_projects[path])
+                        key = "projects" if project.engine == "Unknown" else project.engine
+                        self.projects_map[key].append(project)
                         continue
 
                     match symbol:
-                        case "FOLDER":
-                            re_match = match2(const.PATH, line)
+                        case "PROJECTS":
+                            re_match = match2(const.PATH, path)
                             if re_match:
                                 path = re_match.group(1)
 
@@ -153,29 +153,24 @@ init python in RenpyManager:
                                         
                                         project = Project()
                                         project.path = full_path
-                                        project.engine = "Unknown"
                                         project.update()
-                                        self.projects_map["projects"].append(project)
+
                                         if full_path in self.cache_projects: project.setattrs(**self.cache_projects[full_path])
+                                        key = "projects" if project.engine == "Unknown" else project.engine
+                                        self.projects_map[key].append(project)
 
-                        case "RENPY":
+                        case "RENPY" | "UNITY" | "GODOT" | "RPGM" | "UNREAL" as value:
                             project = Project()
-                            self.add_project(project, "renpy", match2(const.PATH, line),)
-
-                        case "UNITY" | "GODOT" | "RPGM" as value:
-                            project = Project()
-                            self.add_project(project, value.lower(), match2(const.PATH, line))
+                            self.add_project(project, value.lower(), match2(const.PATH, path))
 
                         case None:
                             pass
 
-                    current_symbol = matchs(const.SYMBOLS, line, symbol)
+                    current_symbol = matchs(const.SYMBOLS, path, symbol)
 
                     if current_symbol != symbol:
                         symbol = current_symbol
                         continue
-    
-            self.load_projects_from_cache()
 
         def add_project(self, project: Project, key: str, re_match):
             if re_match:
@@ -190,6 +185,12 @@ init python in RenpyManager:
                 self.projects_map[key].append(project)
                 if path in self.cache_projects: project.setattrs(**self.cache_projects[path])
         
+        def move_project(self, project: Project):
+            for key in self.projects_map:
+                if project in self.projects_map[key][:]:
+                    self.projects_map[key].remove(project)
+                    self.projects_map[project.engine].append(project)
+
         def get_projects_from_cache(self) -> dict:
             with open(os.path.join(config.basedir, "cache_projects.json"), "a+") as fl:
                 fl.seek(0)
@@ -205,6 +206,7 @@ init python in RenpyManager:
             for project in self.get_all_projects():
                 if project.path in self.cache_projects:
                     project.setattrs(**self.cache_projects[project.path])
+                    self.move_project(project)
 
         def save_projects_to_cache(self):
             for project in self.get_all_projects():
@@ -227,7 +229,7 @@ init python in RenpyManager:
 
             self.executers = {"custom": ""}
             self.execute_mode = None
-            self.engine = None
+            self.engine = "Unknown"
             self.args = ""
 
             self._logo = "logo_placeholder"
@@ -274,7 +276,8 @@ init python in RenpyManager:
             
             match self.execute_mode:
                 case "exe" | "py" | "sh" as key:
-                    self.name = pathlib.Path(self.execute).stem
+                    if self.execute != "Not Set.":
+                        self.name = pathlib.Path(self.execute).stem
 
             self.update_thumbnail()
 
@@ -375,7 +378,8 @@ init python in RenpyManager:
         def __call__(self):
             self.project.executers["custom"] = self.executable_path
             self.project.execute_mode = "custom"
-            self.project.name = pathlib.Path(self.name).stem
+            if self.project.name == "Unknown":
+                self.project.name = pathlib.Path(self.name).stem
             Manager.cache_projects[self.project.path] = vars(self.project)
             renpy.restart_interaction()
 
@@ -387,20 +391,23 @@ init python in RenpyManager:
         def __call__(self):
             self.project.engine = self.engine
             self.project.update_thumbnail()
+            Manager.move_project(self.project)
             renpy.restart_interaction()
 
     def FetchExecutables(project: Project) -> list[tuple[str, str]]:
         items = []
 
         def skip_file(file):
-            for fmt in const.IGNORE_FMT:
-                if file.endswith(fmt):
-                    return True
+            file_name, *fmt = file.split(".")
+            if file_name in const.IGNORE_NAME:
+                return True
+
+            if fmt and fmt[0] not in const.VALID_FMT:
+                return True
+
+            return False
 
         match os.name:
-            case "nt":
-                pass
-
             case "posix":
                 files = os.listdir(project.path)
                 for file in files:
