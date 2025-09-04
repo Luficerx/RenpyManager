@@ -10,7 +10,7 @@ default persistent.rm_view_mode = "list+"
 default persistent.rm_auto_save = False
 default persistent.rm_json_timer = 2
 default persistent.rm_snark_hack = True
-default persistent.rm_engines = {"projects": True, "renpy": True, "unity": False, "godot": False, "rpgm": False, "unreal": False}
+default persistent.rm_engines = {"projects": True, "renpy": True, "unity": True, "godot": True, "rpgm": True, "unreal": True}
 default persistent.rm_others = {"pinned": False, "stars_query": False}
 default persistent.rm_tags = {
     "ai cg": False,
@@ -56,6 +56,7 @@ default persistent.rm_tags = {
     "cosplay": False,
     "transformation": False,
     "sissification": False,
+    "bimbofication": False,
     "mind control": False,
     "masturbation": False,
     "humiliation": False,
@@ -94,3 +95,5 @@ default persistent.rm_tags = {
     "netorase": False,
     "netori": False,
     }
+
+define config.save_directory = None

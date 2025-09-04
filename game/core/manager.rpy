@@ -6,7 +6,8 @@ init python in const:
     
     SYMBOLS = tuple([(x.upper(), fr"^@{x}:") for x in DIRECTIVES])
 
-    IGNORE_NAME = ("notification_helper", "crashpad_handler")
+    IGNORE_NAME = ("notification_helper", "crashpad_handler", "UnityCrashHandler64", "UnityCrashHandler32")
+    
     VALID_FMT = ("exe", "sh", "py")
 
     THUMBNAIL_PLACEHOLDERS = (
@@ -265,19 +266,24 @@ init python in RenpyManager:
             base_folder = os.listdir(self.path)
 
             for file in base_folder:
-                if file.endswith(".exe"):
-                    self.executers["exe"] = os.path.join(self.path, file)
+                name, *fmt = file.split(".")
+                if name in const.IGNORE_NAME: continue
 
-                elif file.endswith(".py"):
-                    self.executers["py"] = os.path.join(self.path, file)
+                if fmt:
+                    value = fmt[-1]
+                    match value:
+                        case "exe":
+                            self.executers["exe"] = os.path.join(self.path, file)
 
-                elif file.endswith(".sh"):
-                    self.executers["sh"] = os.path.join(self.path, file)
-            
-            match self.execute_mode:
-                case "exe" | "py" | "sh" as key:
-                    if self.execute != "Not Set.":
-                        self.name = pathlib.Path(self.execute).stem
+                        case "py":
+                            self.executers["py"] = os.path.join(self.path, file)
+
+                        case "sh":
+                            self.executers["sh"] = os.path.join(self.path, file)
+
+            if self.execute_mode in ("exe", "py", "sh"):
+                if self.execute != "Not Set.":
+                    self.name = pathlib.Path(self.execute).stem
 
             self.update_thumbnail()
 
@@ -402,7 +408,7 @@ init python in RenpyManager:
             if file_name in const.IGNORE_NAME:
                 return True
 
-            if fmt and fmt[0] not in const.VALID_FMT:
+            if fmt and fmt[-1] not in const.VALID_FMT:
                 return True
 
             return False
