@@ -464,7 +464,7 @@ init python in RenpyManager:
                             return
 
                         if not (os.path.isfile(executable_path) and os.access(executable_path, os.X_OK)):
-                            renpy.notify("Invalid executable: `.exe`")
+                            renpy.notify("Invalid executable.")
                             return
                 
                 self.project.executers["custom"] = executable_path
