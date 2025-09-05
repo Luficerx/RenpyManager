@@ -2,11 +2,16 @@ screen RMProjectViewer():
     default Manager = RenpyManager.Manager
     default search_input = FieldInputValue(Manager, "search", default=False)
     default name_input = FieldInputValue(Manager, "project.name", default=False)
+    default version_input = FieldInputValue(Manager, "project.version", default=False)
 
     default filter_mode = "tags"
     default mode = "lib"
 
     dismiss action search_input.Disable()
+    key ["K_RETURN", "K_KP_ENTER"] action (search_input.Disable(), name_input.Disable(), version_input.Disable())
+
+    if persistent.rm_auto_save:
+        timer persistent.rm_json_timer * 60 repeat True action RenpyManager.CacheProjects()
 
     add rm_background
 
@@ -24,13 +29,17 @@ screen RMProjectViewer():
                 yalign 0.5 xoffset 10 spacing 10
 
                 imagebutton:
-                    idle Transform("icon_reload_idle", xysize=(40, 40)) hover Transform("icon_reload_hover", xysize=(40, 40))
-                    action RenpyManager.RefreshManager()
+                    idle Transform("icon_gear_idle", xysize=(40, 40)) hover Transform("icon_gear_hover", xysize=(40, 40))
+                    action SetLocalVariable("mode", "config") yalign 1.0
 
                 imagebutton:
                     idle Transform("icon_save_idle", xysize=(40, 40)) hover Transform("icon_save_hover", xysize=(40, 40))
                     action RenpyManager.CacheProjects()
 
+                imagebutton:
+                    idle Transform("icon_reload_idle", xysize=(40, 40)) hover Transform("icon_reload_hover", xysize=(40, 40))
+                    action RenpyManager.RefreshManager()
+                
             hbox:
                 align (0.5, 0.5) spacing 10
                 button:
@@ -54,6 +63,7 @@ screen RMProjectViewer():
                         padding (12, 8, 8, 8) ysize 80
                         vpgrid:
                             style_prefix "rm_check"
+                            id "engines_vp"
                             draggable True mousewheel True
                             xysize (425, 65) cols 2
 
@@ -68,6 +78,9 @@ screen RMProjectViewer():
                                     action ToggleDict(Manager.engines, key, True, False)
                                     text "[key!c]"
                                     xsize 205
+                        
+                        vbar value YScrollValue("engines_vp") xysize (5, 60) align (1.0, 0.5) xoffset -4 style "rm_vsrollbar"
+
                 vbox:
                     spacing 10
                     text "Tags" xoffset 8
@@ -76,6 +89,7 @@ screen RMProjectViewer():
                         padding (12, 8, 8, 8) ysize 410
                         vpgrid:
                             style_prefix "rm_check"
+                            id "tags_vp"
                             draggable True mousewheel True
                             xysize (425, 395) cols 2
                             
@@ -90,6 +104,8 @@ screen RMProjectViewer():
                                     action ToggleDict(Manager.tags, key, True, False)
                                     text "[key!c]"
                                     xsize 205
+
+                        vbar value YScrollValue("tags_vp") xysize (5, 370) align (1.0, 0.5) xoffset -4 style "rm_vsrollbar"
                 vbox:
                     spacing 10
                     text "Rating" xoffset 8
@@ -159,8 +175,9 @@ screen RMProjectViewer():
                     background None xysize (628, 370) align (1.0, 0.5)
                     vbox:
                         spacing 5
-                        text Manager.project.name size 50 style "rm_title_text_bold"
-                        text Manager.project.engine size 28 style "rm_text_bold"
+                        text Manager.project.name_s size 50 style "rm_title_text_bold"
+                        text "[Manager.project.engine] - [Manager.project.version]" size 28 style "rm_text_bold"
+                            
                         null height 3
                         text Manager.project.description style "rm_text" size 24
 
@@ -176,28 +193,39 @@ screen RMProjectViewer():
                     
                     imagebutton:
                         idle Transform("icon_gear_idle", xysize=(40, 40)) hover Transform("icon_gear_hover", xysize=(40, 40))
-                        action SetLocalVariable("mode", "config") yalign 1.0
+                        action SetLocalVariable("mode", "project_config") yalign 1.0
 
-    elif mode == "config":
+    elif mode == "project_config":
         frame:
             align (0.5, 0.5) xysize (1025, 1025) padding (7, 7)
             background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), (1025, 1025), 20, trans_alpha=0.2)
 
-            vbox:
-                xpos 385 yoffset 5
-                hbox:
-                    text "Name: " yalign 0.5
-                    button:
-                        yalign 0.5
-                        input value name_input changed Manager.refresh:
-                            size 27 yalign 0.5 pixel_width 250 yoffset 2
-                        action name_input.Toggle()
+            frame:
+                background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), (625, 370), 20, trans_alpha=0.2)
+                padding (12, 7, 12, 7)
+                xpos 385
+                vbox:
+                    hbox:
+                        text "Name: " yalign 0.5
+                        button:
+                            yalign 0.5
+                            input value name_input changed Manager.refresh:
+                                size 27 yalign 0.5 pixel_width 380 yoffset 2
+                            action name_input.Toggle()
 
-                hbox:
-                    text "Executable: " yalign 0.5
-                    textbutton "[Manager.project.execute_s]":
-                        action Show("RMChangeExecutable", project=Manager.project) 
-                        selected False yalign 0.5
+                    hbox:
+                        text "Version: " yalign 0.5
+                        button:
+                            yalign 0.5
+                            input value version_input changed Manager.refresh:
+                                size 27 yalign 0.5 pixel_width 380 yoffset 2
+                            action version_input.Toggle()
+
+                    hbox:
+                        text "Executable: " yalign 0.5
+                        textbutton "[Manager.project.execute_s]":
+                            action Show("RMChangeExecutable", project=Manager.project) 
+                            selected False yalign 0.5
 
             vbox:
                 add RoundedImage(Manager.project.thumbnail, (370, 370), 20) yalign 0.0
@@ -207,18 +235,21 @@ screen RMProjectViewer():
                     spacing 10
                     text "Tags" xoffset 8
                     frame:
-                        background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), (425, 410), 20, trans_alpha=0.2)
-                        padding (12, 8, 8, 8) ysize 410
+                        background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), (440, 410), 20, trans_alpha=0.2)
+                        padding (12, 8, 8, 8) xysize (440, 410)
                         vpgrid:
                             style_prefix "rm_check"
+                            id "project_tags_vp"
                             draggable True mousewheel True
-                            xysize (425, 395) cols 2
+                            xysize (440, 395) cols 2
 
                             for key in Manager.tags_az:
                                 button:
                                     action If(key in Manager.project.tags, ToggleDict(Manager.project.tags, key, True, False), SetDict(Manager.project.tags, key, True))
                                     text "[key!c]"
                                     xsize 205
+                        
+                        vbar value YScrollValue("project_tags_vp") xysize (5, 380) align (1.0, 0.5) xoffset -4 style "rm_vsrollbar"
                 vbox:
                     spacing 10
                     text "Engine" xoffset 8
@@ -237,6 +268,53 @@ screen RMProjectViewer():
             textbutton "Return" align (1.0, 1.0) text_size 45:
                 text_font "fonts/Luis Georce Cafe/Louis George Cafe Bold.ttf"
                 action SetLocalVariable("mode", "lib")
+
+    elif mode == "config":
+        frame:
+            background Solid("#00000088")
+            xysize (1920, 60)
+            
+            imagebutton:
+                idle Transform("icon_gear_idle", xysize=(40, 40)) hover Transform("icon_gear_hover", xysize=(40, 40))
+                action SetLocalVariable("mode", "lib") yalign 0.5 xoffset 10
+        
+        frame:
+            align (0.5, 1.0) xysize (990, 990) padding (12, 7, 12, 7) yoffset -15
+            background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), (990, 990), 20, trans_alpha=0.2)
+
+            vbox:
+                style_prefix "rm_check" offset (10, 10)
+                
+                text "Auto Cache" size 25
+                null height 5
+                button:
+                    action ToggleField(persistent, "rm_auto_save", True, False)
+                    text "Enable Auto Caching"
+                    selected persistent.rm_auto_save
+
+                if renpy.os.name == "posix":
+                    null height 25
+
+                    text "Launch Options" size 25
+                    null height 5
+                    button:
+                        action ToggleField(persistent, "rm_execute_mode", "sh", None)
+                        text "Prefer '.sh'"
+                        selected persistent.rm_execute_mode == 'sh'
+
+                    button:
+                        action ToggleField(persistent, "rm_execute_mode", "py", None)
+                        text "Prefer '.py'"
+                        selected persistent.rm_execute_mode == 'py'
+
+                    null height 25
+                    text "Path Options" size 25
+                    null height 5
+
+                    button:
+                        action ToggleField(persistent, "rm_snark_hack", "py", None)
+                        text "Enable '../' Prefix"
+                        selected persistent.rm_snark_hack
 
 screen RMChangeExecutable(project):
     add "#181818" alpha 0.7

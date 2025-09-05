@@ -240,6 +240,12 @@ init python in RenpyManager:
             for (key, value) in kwargs.items():
                 setattr(self, key, value)
 
+        @property
+        def name_s(self):
+            if len(self.name) > 22:
+                return self.name[:19] + "..."
+            return self.name
+
         def __repr__(self):
             return self.name
 
@@ -322,6 +328,9 @@ init python in RenpyManager:
 
         @property
         def execute(self):
+            if persistent.rm_execute_mode is not None:
+                if (value := self.executers.get(persistent.rm_execute_mode, None)) is not None:
+                    return value
             return self.executers.get(self.execute_mode, "Not Found.")
 
         @property
