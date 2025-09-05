@@ -10,6 +10,8 @@ screen RMProjectViewer():
     dismiss action search_input.Disable()
     key ["K_RETURN", "K_KP_ENTER"] action (search_input.Disable(), name_input.Disable(), version_input.Disable())
 
+    timer 1 repeat True action RenpyManager.Poll()
+
     if persistent.rm_auto_save:
         timer persistent.rm_json_timer * 60 repeat True action RenpyManager.CacheProjects()
 
@@ -179,6 +181,7 @@ screen RMProjectViewer():
                         text "[Manager.project.engine] - [Manager.project.version]" size 28 style "rm_text_bold"
                             
                         null height 3
+                        text Manager.project.playtime style "rm_text" size 24
                         text Manager.project.description style "rm_text" size 24
 
                     imagebutton:
@@ -224,11 +227,15 @@ screen RMProjectViewer():
                     hbox:
                         text "Executable: " yalign 0.5
                         textbutton "[Manager.project.execute_s]":
-                            action Show("RMChangeExecutable", project=Manager.project) 
+                            action RenpyManager.SelectExecutableDialog(Manager.project)
                             selected False yalign 0.5
 
             vbox:
-                add RoundedImage(Manager.project.thumbnail, (370, 370), 20) yalign 0.0
+                button:
+                    xysize (370, 370)
+                    background RoundedImage(Manager.project.thumbnail, (370, 370), radius=20)
+                    action RenpyManager.SelectThumbnailDialog(Manager.project)
+
                 spacing 20
                 
                 vbox:
@@ -315,26 +322,6 @@ screen RMProjectViewer():
                         action ToggleField(persistent, "rm_snark_hack", "py", None)
                         text "Enable '../' Prefix"
                         selected persistent.rm_snark_hack
-
-screen RMChangeExecutable(project):
-    add "#181818" alpha 0.7
-    
-    dismiss action Hide()
-
-    fixed:
-        xysize (800, 1000) align (0.5, 0.5)
-        vbox:
-            fixed:
-                xysize (800, 50)
-                add RoundedImage(Gradient(), (800, 50), (15, 15, 0, 0), 1)
-                text "Select an Executable" align (0.5, 0.5)
-                
-            for (name, path) in RenpyManager.FetchExecutables(project):
-                textbutton "[name]":
-                    action (RenpyManager.SetProjectExecutable(project, name, path), Hide())
-                    xysize (800, 40) xalign 0.5
-                    background "#373737"
-                    hover_background "#505050"
 
 screen RMAbout():
     dismiss action Hide(transition=Dissolve(0.2))

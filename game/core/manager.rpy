@@ -10,6 +10,8 @@ init python in const:
     
     VALID_FMT = ("exe", "sh", "py")
 
+    VALID_IMGS = ("*.png", "*.webm", "*.jpg", "*.avif", "*.svg")
+
     THUMBNAIL_PLACEHOLDERS = (
         "thumbnail_placeholder",
         "renpy_thumbnail_placeholder",
@@ -28,7 +30,9 @@ init python in RenpyManager:
     from __future__ import annotations
     from renpy.store import Action, persistent, const
     from renpy import config
+    
     import os, re, subprocess, pathlib, shutil, json
+    import _renpytfd
 
     # HACK: This is the most satanic way of fixing a renpy system problem.
     SNARKY_PREFIX = "../" * len(list(filter(lambda x: x, config.gamedir.split("/"))))
@@ -42,6 +46,8 @@ init python in RenpyManager:
 
             self.cache_projects = self.get_projects_from_cache()
             self.stars_query = 0.0
+
+            self.process = []
         
         @property
         def engines(self) -> dict[str, bool]:
@@ -228,6 +234,7 @@ init python in RenpyManager:
             self.pinned = False
             self.tags = {}
 
+            self._playtime = {"d": 0, "h": 0, "m": 0, "s": 0}
             self.executers = {"custom": ""}
             self.execute_mode = None
             self.engine = "Unknown"
@@ -235,16 +242,6 @@ init python in RenpyManager:
 
             self._logo = "logo_placeholder"
             self._thumbnail = "thumbnail_placeholder"
-
-        def setattrs(self, **kwargs):
-            for (key, value) in kwargs.items():
-                setattr(self, key, value)
-
-        @property
-        def name_s(self):
-            if len(self.name) > 22:
-                return self.name[:19] + "..."
-            return self.name
 
         def __repr__(self):
             return self.name
@@ -257,6 +254,24 @@ init python in RenpyManager:
                 return self.path == other
 
             return False
+
+        def setattrs(self, **kwargs):
+            for (key, value) in kwargs.items():
+                setattr(self, key, value)
+
+        def add_playtime(self):
+            self._playtime["s"] += 1
+            if (self._playtime["s"] == 60):
+                self._playtime["m"] += 1
+                self._playtime["s"] = 0
+
+            if (self._playtime["m"] == 60):
+                self._playtime["h"] += 1
+                self._playtime["m"] = 0
+
+            if (self._playtime["h"] == 24):
+                self._playtime["d"] += 1
+                self._playtime["h"] = 0
 
         def update(self):
             match os.name:
@@ -341,6 +356,32 @@ init python in RenpyManager:
         def caller_exists(self) -> bool:
             return True
 
+        @property
+        def playtime(self):
+            """Return formatted playtime string."""
+            parts = []
+            if self._playtime["d"] > 0:
+                parts.append(f'{self._playtime["d"]}d')
+
+            if self._playtime["h"] > 0:
+                parts.append(f'{self._playtime["h"]}h')
+
+            if self._playtime["m"] > 0:
+                parts.append(f'{self._playtime["m"]}m')
+
+            if self._playtime["s"] > 0:
+                parts.append(f'{self._playtime["s"]}s')
+
+            if not parts:  # all zero
+                return "Playtime: 0s"
+            return "Playtime: " + " ".join(parts)
+
+        @property
+        def name_s(self):
+            if len(self.name) > 22:
+                return self.name[:19] + "..."
+            return self.name
+
     class Execute(Action):
         def __init__(self, project: Project, mode: str = "launch"):
             self.project = project
@@ -357,6 +398,8 @@ init python in RenpyManager:
                             stderr=subprocess.PIPE,
                             text=True,
                         )
+
+                        Manager.process.append((self.project, process))
 
                     except:
                         renpy.notify("Could not launch project.")
@@ -384,18 +427,70 @@ init python in RenpyManager:
             with open(os.path.join(config.basedir, "cache_projects.json"), "w+") as fl:
                 json.dump(Manager.cache_projects, fl, indent=4)
 
-    class SetProjectExecutable(Action):
-        def __init__(self, project: Project, name: str, executable_path: str):
-            self.executable_path = executable_path
+    class Poll(Action):
+        def __call__(self):
+            for (project, process) in Manager.process[:]:
+                if (value := process.poll()) is None:
+                    project.add_playtime()
+
+                else:
+                    Manager.process.remove((project, process))
+            
+            renpy.restart_interaction()
+
+    class SelectExecutableDialog(Action):
+        def __init__(self, project: Project):
             self.project = project
-            self.name = name
 
         def __call__(self):
-            self.project.executers["custom"] = self.executable_path
-            self.project.execute_mode = "custom"
-            if self.project.name == "Unknown":
-                self.project.name = pathlib.Path(self.name).stem
-            Manager.cache_projects[self.project.path] = vars(self.project)
+            try:
+                match os.name:
+                    case "nt":
+                        # Windows, bother only about exe
+                        executable_path = _renpytfd.openFileDialog("Select Executable", self.project.path, ("Supported Formats: ", "*.exe"), None)
+                        
+                        if not executable_path.endswith(".exe") and not (os.path.isfile(executable_path) and os.access(executable_path, os.X_OK)):
+                            renpy.notify("Invalid executable: `.exe`")
+                            return
+
+                        if executable_path is None:
+                            return
+
+                    case "posix":
+                        # Linux, Pick everything and fuck it
+                        executable_path = _renpytfd.openFileDialog("Select Executable", self.project.path, (), None)
+                        
+                        if executable_path is None:
+                            return
+
+                        if not (os.path.isfile(executable_path) and os.access(executable_path, os.X_OK)):
+                            renpy.notify("Invalid executable: `.exe`")
+                            return
+                
+                self.project.executers["custom"] = executable_path
+                self.project.execute_mode = "custom"
+                if self.project.name == "Unknown":
+                    self.project.name = pathlib.Path(executable_path).stem
+                Manager.cache_projects[self.project.path] = vars(self.project)
+                renpy.restart_interaction()
+
+            except Exception as e:
+                raise e
+
+    class SelectThumbnailDialog(Action):
+        def __init__(self, project: Project):
+            self.project = project
+        
+        def __call__(self):
+            if self.project._thumbnail not in const.THUMBNAIL_PLACEHOLDERS:
+                default_thumbnail = self.project._thumbnail
+            else:
+                default_thumbnail = self.project.path
+
+            thumbnail_path = _renpytfd.openFileDialog("Select Thumbnail Image", default_thumbnail, ("Supported Formats: ", *const.VALID_IMGS), None)
+
+            self.project._thumbnail = thumbnail_path
+
             renpy.restart_interaction()
 
     class SetProjectEngine(Action):
@@ -408,31 +503,6 @@ init python in RenpyManager:
             self.project.update_thumbnail()
             Manager.move_project(self.project)
             renpy.restart_interaction()
-
-    def FetchExecutables(project: Project) -> list[tuple[str, str]]:
-        items = []
-
-        def skip_file(file):
-            file_name, *fmt = file.split(".")
-            if file_name in const.IGNORE_NAME:
-                return True
-
-            if fmt and fmt[-1] not in const.VALID_FMT:
-                return True
-
-            return False
-
-        match os.name:
-            case "posix":
-                files = os.listdir(project.path)
-                for file in files:
-                    if skip_file(file): continue
-                    
-                    file_path = os.path.join(project.path, file)
-                    if os.path.isfile(file_path) and os.access(file_path, os.X_OK):
-                        items.append((file, file_path))
-
-        return items
 
     def filter_paths(lines: list[str]) -> list[str]:
         return [x.rstrip() for x in lines if (not match(r"\s+$", x) and not match(const.COMMENT, x))]
