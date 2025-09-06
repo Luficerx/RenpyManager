@@ -7,6 +7,7 @@
 /game/**/*.rpyc
 /game/**/*.rpymc
 
+
 # Files Ren'Py can generate.
 /game/**/*.bak
 /game/**/*.new
@@ -19,8 +20,6 @@
 /log.txt
 /save_dump.txt
 /traceback.txt
-/projects.txt
-/cache_projects.json
 
 # Launcher-generated files.
 /dialogue.tab
@@ -28,3 +27,7 @@
 /strings.json
 
 .vscode/
+
+/game/images/thumbnails/*
+/cache_projects.json
+/projects.txt

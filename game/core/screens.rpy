@@ -339,3 +339,33 @@ screen RMAbout():
     an issue on Github {a=https://github.com/Luficerx/RenpyManager}RenpyManager{/a}
     """):
         align (0.5, 0.5) size 25 text_align 0.5
+
+screen RMYesNo(message, frame_size=(600, 200)):
+    modal True
+    add Gradient(colors=("#211832", "#2d1313", "#2d1313", "#211832"))
+
+    frame:
+        background RoundedImage("black", radius=20, trans_alpha=0.8)
+        align (0.5, 0.5) xysize frame_size padding (20, 20)
+        text "[message]" xalign 0.5 yoffset 25 text_align 0.5
+
+        textbutton "Yes":
+            text_size 45 align (0.1, 1.0)
+            text_font "fonts/Luis Georce Cafe/Louis George Cafe Bold.ttf"
+            action Return(True)
+
+        textbutton "No":
+            text_size 45 align (0.9, 1.0)
+            text_font "fonts/Luis Georce Cafe/Louis George Cafe Bold.ttf"
+            action Return(False)
+
+screen RMThumbnailCrop(image, project):
+    modal True
+    
+    default thumbnail = ThumbnailMask(image, (370, 370), project.name)
+
+    add thumbnail align (0.5, 0.5)
+
+    textbutton "Done" align (1.0, 1.0) text_size 45 offset (-10, -10):
+        text_font "fonts/Luis Georce Cafe/Louis George Cafe Bold.ttf"
+        action Return(thumbnail)

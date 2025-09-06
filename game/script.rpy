@@ -1,1 +1,2 @@
-﻿
+﻿# label before_main_menu:
+#     call screen RMYesNo("This is my message explaining something that I couldn't bother myself enough to think on what to add so I'll just slap a bunch of random words until something coherent appears ")

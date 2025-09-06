@@ -37,6 +37,11 @@ init python in RenpyManager:
     # HACK: This is the most satanic way of fixing a renpy system problem.
     SNARKY_PREFIX = "../" * len(list(filter(lambda x: x, config.gamedir.split("/"))))
 
+    def snark(path: str, *extra: tuple[bool]) -> str:
+        if os.name == "posix" and persistent.rm_snark_hack and all(extra):
+            return SNARKY_PREFIX + path
+        return path
+
     class ProjectManager():
         def __init__(self):
             self.project = None
@@ -240,7 +245,6 @@ init python in RenpyManager:
             self.engine = "Unknown"
             self.args = ""
 
-            self._logo = "logo_placeholder"
             self._thumbnail = "thumbnail_placeholder"
 
         def __repr__(self):
@@ -292,15 +296,8 @@ init python in RenpyManager:
 
                 if fmt:
                     value = fmt[-1]
-                    match value:
-                        case "exe":
-                            self.executers["exe"] = os.path.join(self.path, file)
-
-                        case "py":
-                            self.executers["py"] = os.path.join(self.path, file)
-
-                        case "sh":
-                            self.executers["sh"] = os.path.join(self.path, file)
+                    if value in ("exe", "py", "sh"):
+                        self.executers[value] = os.path.join(self.path, file)
 
             if self.execute_mode in ("exe", "py", "sh"):
                 if self.execute != "Not Set.":
@@ -323,23 +320,12 @@ init python in RenpyManager:
     
             if os.path.exists(rm_folder_path):
                 for file in os.listdir(rm_folder_path):
-                    if file == "icon.png":
-                        self._logo = os.path.join(rm_folder_path, file)
-
-                    elif file == "rm_thumbnail.png":
+                    if file == "rm_thumbnail.png":
                         self._thumbnail = os.path.join(rm_folder_path, file)
 
         @property
         def thumbnail(self) -> str:
-            if persistent.rm_snark_hack and os.name == "posix" and self._thumbnail not in const.THUMBNAIL_PLACEHOLDERS:
-                return (SNARKY_PREFIX + self._thumbnail)
-            return self._thumbnail
-
-        @property
-        def logo(self) -> str:
-            if persistent.rm_snark_hack and os.name == "posix" and self._logo not in const.LOGOS_PLACEHOLDERS:
-                return (SNARKY_PREFIX + self._logo)
-            return self._logo
+            return snark(self._thumbnail, self._thumbnail not in const.THUMBNAIL_PLACEHOLDERS and not self._thumbnail.startswith("images/"))
 
         @property
         def execute(self):
@@ -482,16 +468,16 @@ init python in RenpyManager:
             self.project = project
         
         def __call__(self):
-            if self.project._thumbnail not in const.THUMBNAIL_PLACEHOLDERS:
+            if self.project._thumbnail not in const.THUMBNAIL_PLACEHOLDERS and not self.project._thumbnail.startswith("images/"):
                 default_thumbnail = self.project._thumbnail
+
             else:
                 default_thumbnail = self.project.path
 
             thumbnail_path = _renpytfd.openFileDialog("Select Thumbnail Image", default_thumbnail, ("Supported Formats: ", *const.VALID_IMGS), None)
 
-            self.project._thumbnail = thumbnail_path
-
-            renpy.restart_interaction()
+            if thumbnail_path is not None:
+                renpy.call_in_new_context("crop_thumbnail", "Do you want to crop this image?", self.project, thumbnail_path)
 
     class SetProjectEngine(Action):
         def __init__(self, project: Project, engine: str):
