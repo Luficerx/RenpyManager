@@ -28,6 +28,8 @@
 
 .vscode/
 
+/game/images/foo/*
 /game/images/thumbnails/*
+!/game/images/thumbnails/.gitkeep
 /cache_projects.json
 /projects.txt
