@@ -1,4 +1,4 @@
-label crop_thumbnail(message, project, thumbnail):
+label rm_crop_thumbnail(message, project, thumbnail):
     call screen RMYesNo(message)
 
     if _return:
@@ -10,4 +10,10 @@ label crop_thumbnail(message, project, thumbnail):
         $ project._thumbnail = thumbnail
 
     $ renpy.restart_interaction()
+    return
+
+label rm_add_project():
+    call screen RMAddProject()
+
+    # $ renpy.restart_interaction()
     return

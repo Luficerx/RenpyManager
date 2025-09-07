@@ -133,7 +133,6 @@ init python:
             self.start_xpos = properties.pop("xpos", 0)
             self.start_ypos = properties.pop("ypos", 0)
 
-
             super(ThumbnailRect, self).__init__(**properties)
 
             self.draggable = True
@@ -145,8 +144,8 @@ init python:
             self.w = min(self.w, rel_size)
             self.h = min(self.h, rel_size)
 
-            self.x = int(parent_size[0]//2 - rel_size//2)
-            self.y = int(parent_size[1]//2 - rel_size//2)
+            self.x = int(parent_size[0]//2 - self.size[0]//2)
+            self.y = int(parent_size[1]//2 - self.size[1]//2)
 
             self.pos_set = False
             self.dragging = False
@@ -205,19 +204,6 @@ init python:
         @property
         def pos(self):
             return (self.x, self.y)
-        
-        def update_pos(self):
-            if type(self.start_xpos) is float:
-                self.x = int((self.parent_size[0] - self.size[0]) * self.start_xpos)
-
-            else:
-                self.x = self.start_xpos if self.start_xpos < self.parent_size[0] else 0
-
-            if type(self.start_ypos) is float:
-                self.y = int((self.parent_size[1] - self.size[1]) * self.start_ypos)
-
-            else:
-                self.y = self.start_ypos if self.start_ypos < self.parent_size[1] else 0
 
         def render(self, w, h, st, at, *args):
             child_rv = Null(*self.size).render(*self.size, st, at)

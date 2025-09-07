@@ -46,6 +46,22 @@ image icon_play_hover:
     matrixcolor ColorizeMatrix(persistent.rm_ui_color, "#FFFFFF")
     "images/icons/play_icon.png"
 
+image icon_add_idle:
+    alpha 0.5
+    "icon_add_hover"
+
+image icon_add_hover:
+    matrixcolor ColorizeMatrix(persistent.rm_ui_color, "#FFFFFF")
+    "images/icons/add_icon.png"
+
+image icon_add_multi_idle:
+    alpha 0.5
+    "icon_add_multi_hover"
+
+image icon_add_multi_hover:
+    matrixcolor ColorizeMatrix(persistent.rm_ui_color, "#FFFFFF")
+    "images/icons/add_multi_icon.png"
+
 image icon_gear_idle:
     alpha 0.5
     "icon_gear_hover"

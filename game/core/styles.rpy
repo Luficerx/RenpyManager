@@ -11,6 +11,8 @@ style rm_title_text_bold is rm_text_bold:
     outlines [(2, "#000", 0, 0)]
     font "fonts/Luis Georce Cafe/Louis George Cafe Bold.ttf"
 
+style rm_button is button
+
 style rm_check_button is button:
     left_padding 35
     background "checker_icon_off"

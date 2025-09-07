@@ -22,13 +22,8 @@ screen RMProjectViewer():
             background Solid("#00000088")
             xysize (1920, 60)
             
-            imagebutton:
-                align (1.0, 0.5) xoffset -10
-                idle Transform("icon_help_idle", xysize=(40, 40)) hover Transform("icon_help_hover", xysize=(40, 40))
-                action Show("RMAbout", transition=Dissolve(0.2))
-
             hbox:
-                yalign 0.5 xoffset 10 spacing 10
+                align (1.0, 0.5) xoffset -10 spacing 10
 
                 imagebutton:
                     idle Transform("icon_gear_idle", xysize=(40, 40)) hover Transform("icon_gear_hover", xysize=(40, 40))
@@ -39,8 +34,25 @@ screen RMProjectViewer():
                     action RenpyManager.CacheProjects()
 
                 imagebutton:
+                    align (1.0, 0.5)
+                    idle Transform("icon_help_idle", xysize=(40, 40)) hover Transform("icon_help_hover", xysize=(40, 40))
+                    action Show("RMAbout", transition=Dissolve(0.2))
+
+            hbox:
+                yalign 0.5 xoffset 10 spacing 10
+                imagebutton:
+                    align (1.0, 0.5)
+                    idle Transform("icon_add_idle", xysize=(40, 40)) hover Transform("icon_add_hover", xysize=(40, 40))
+                    action RenpyManager.AddProject()
+
+                imagebutton:
+                    align (1.0, 0.5)
+                    idle Transform("icon_add_multi_idle", xysize=(40, 40)) hover Transform("icon_add_multi_hover", xysize=(40, 40))
+                    action NullAction()
+
+                imagebutton:
                     idle Transform("icon_reload_idle", xysize=(40, 40)) hover Transform("icon_reload_hover", xysize=(40, 40))
-                    action RenpyManager.RefreshManager()
+                    action RenpyManager.RefreshManager(), Notify("Reloading Projects...")
                 
             hbox:
                 align (0.5, 0.5) spacing 10
@@ -283,7 +295,7 @@ screen RMProjectViewer():
             
             imagebutton:
                 idle Transform("icon_gear_idle", xysize=(40, 40)) hover Transform("icon_gear_hover", xysize=(40, 40))
-                action SetLocalVariable("mode", "lib") yalign 0.5 xoffset 10
+                action SetLocalVariable("mode", "lib") align (1.0, 0.5) xoffset -10
         
         frame:
             align (0.5, 1.0) xysize (990, 990) padding (12, 7, 12, 7) yoffset -15
@@ -301,7 +313,6 @@ screen RMProjectViewer():
 
                 if renpy.os.name == "posix":
                     null height 25
-
                     text "Launch Options" size 25
                     null height 5
                     button:
@@ -322,6 +333,15 @@ screen RMProjectViewer():
                         action ToggleField(persistent, "rm_snark_hack", "py", None)
                         text "Enable '../' Prefix"
                         selected persistent.rm_snark_hack
+                        
+                null height 25
+                text "Project Options" size 25
+                hbox:
+                    text "Default Game Folder: " yalign 0.5
+                    textbutton "[persistent.rm_default_game_folder]":
+                        xsize 400 yalign 0.5
+                        action RenpyManager.SelectFolderDialog()
+                        style "button"
 
 screen RMAbout():
     dismiss action Hide(transition=Dissolve(0.2))
@@ -366,6 +386,22 @@ screen RMThumbnailCrop(image, project):
 
     add thumbnail align (0.5, 0.5)
 
-    textbutton "Done" align (1.0, 1.0) text_size 45 offset (-10, -10):
+    textbutton "Done":
+        align (1.0, 1.0) text_size 45 offset (-10, -10)
         text_font "fonts/Luis Georce Cafe/Louis George Cafe Bold.ttf"
         action Return(thumbnail)
+
+screen RMAddProject():
+    modal True
+
+    add Gradient(colors=("#211832", "#2d1313", "#2d1313", "#211832"))
+
+    hbox:
+        align (0.5, 1.0) yoffset -10 spacing 20
+        textbutton "Cancel":
+            text_font "fonts/Luis Georce Cafe/Louis George Cafe Bold.ttf" text_size 30
+            action Return()
+
+        textbutton "Add":
+            text_font "fonts/Luis Georce Cafe/Louis George Cafe Bold.ttf" text_size 30
+            action Return()

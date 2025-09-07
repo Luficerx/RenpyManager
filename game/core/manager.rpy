@@ -46,7 +46,7 @@ init python in RenpyManager:
         def __init__(self):
             self.project = None
 
-            self.projects_map = {"projects": [], "renpy": [], "unity": [], "godot": [], "rpgm": [], "unreal": []}
+            self.projects_map = {"renpy": [], "unity": [], "godot": [], "rpgm": [], "unreal": [], "projects": []}
             self.search = ""
 
             self.cache_projects = self.get_projects_from_cache()
@@ -137,21 +137,10 @@ init python in RenpyManager:
                 symbol = None
 
                 for path in filter_paths(fl.readlines()):
-                    is_dir = os.path.isdir(path)
-
-                    if is_dir:
-                        project = Project()
-                        project.path = path
-                        project.update()
-
-                        if path in self.cache_projects: project.setattrs(**self.cache_projects[path])
-                        key = "projects" if project.engine == "Unknown" else project.engine
-                        self.projects_map[key].append(project)
-                        continue
-
                     match symbol:
                         case "PROJECTS":
                             re_match = match2(const.PATH, path)
+                            
                             if re_match:
                                 path = re_match.group(1)
 
@@ -159,17 +148,21 @@ init python in RenpyManager:
                                     files = os.listdir(path)
 
                                     for file in files:
-                                        full_path = os.path.join(path, file)
-                                        if not os.path.isdir(full_path): continue
-                                        if full_path in self.get_all_projects(): continue
+                                        folder_path = os.path.join(path, file)
+                                        if not os.path.isdir(folder_path): continue
+                                        if folder_path in self.get_all_projects(): continue
                                         
                                         project = Project()
-                                        project.path = full_path
-                                        project.update()
+                                        if folder_path in self.cache_projects:
+                                            project.setattrs(**self.cache_projects[folder_path])
+                                            key = "projects" if project.engine == "Unknown" else project.engine
+                                            self.projects_map[key].append(project)
+                                            continue
 
-                                        if full_path in self.cache_projects: project.setattrs(**self.cache_projects[full_path])
-                                        key = "projects" if project.engine == "Unknown" else project.engine
-                                        self.projects_map[key].append(project)
+                                        project.setattrs(
+                                            folder_path=folder_path
+                                            ).update()
+                                        self.projects_map["projects"].append(project)
 
                         case "RENPY" | "UNITY" | "GODOT" | "RPGM" | "UNREAL" as value:
                             project = Project()
@@ -186,16 +179,21 @@ init python in RenpyManager:
 
         def add_project(self, project: Project, key: str, re_match):
             if re_match:
-                path = re_match.group(1)
+                folder_path = re_match.group(1)
                 args = re_match.group(2) or ""
                 
-                project.path = path
-                project.args = args
-                project.engine = key
+                if folder_path in self.cache_projects:
+                    project.setattrs(**self.cache_projects[folder_path])
+                    self.projects_map[project.engine].append(project)
+                    return
 
-                project.update()
+                project.setattrs(
+                    folder_path=folder_path,
+                    args=args,
+                    engine=key,
+                ).update()
+
                 self.projects_map[key].append(project)
-                if path in self.cache_projects: project.setattrs(**self.cache_projects[path])
         
         def move_project(self, project: Project):
             for key in self.projects_map:
@@ -216,13 +214,13 @@ init python in RenpyManager:
 
         def load_projects_from_cache(self):
             for project in self.get_all_projects():
-                if project.path in self.cache_projects:
-                    project.setattrs(**self.cache_projects[project.path])
+                if project.folder_path in self.cache_projects:
+                    project.setattrs(**self.cache_projects[project.folder_path])
                     self.move_project(project)
 
         def save_projects_to_cache(self):
             for project in self.get_all_projects():
-                self.cache_projects[project.path] = vars(project)
+                self.cache_projects[project.folder_path] = vars(project)
 
         def has_project(self, project) -> bool:
             return project in self.get_all_projects()
@@ -230,16 +228,18 @@ init python in RenpyManager:
     class Project():
         def __init__(self):
             self.name = "Unknown"
+            self.version = "0.0.0"
+
+            self.folder_path = None
+
             self.description = "No Description Given."
 
-            self.version = "Unknown"
-            self.path = None
-            
-            self.stars = 0.0
             self.pinned = False
+            self.stars = 0.0
             self.tags = {}
 
             self._playtime = {"d": 0, "h": 0, "m": 0, "s": 0}
+
             self.executers = {"custom": ""}
             self.execute_mode = None
             self.engine = "Unknown"
@@ -252,16 +252,18 @@ init python in RenpyManager:
 
         def __eq__(self, other):
             if type(other) is Project:
-                return self.path == other.path
+                return self.folder_path == other.folder_path
 
             if type(other) is str:
-                return self.path == other
+                return self.folder_path == other
 
             return False
 
         def setattrs(self, **kwargs):
             for (key, value) in kwargs.items():
                 setattr(self, key, value)
+            
+            return self
 
         def add_playtime(self):
             self._playtime["s"] += 1
@@ -288,7 +290,7 @@ init python in RenpyManager:
                 case _ as error:
                     raise Exception(f"This system is not supported or is unknown. {_}")
             
-            base_folder = os.listdir(self.path)
+            base_folder = os.listdir(self.folder_path)
 
             for file in base_folder:
                 name, *fmt = file.split(".")
@@ -297,7 +299,7 @@ init python in RenpyManager:
                 if fmt:
                     value = fmt[-1]
                     if value in ("exe", "py", "sh"):
-                        self.executers[value] = os.path.join(self.path, file)
+                        self.executers[value] = os.path.join(self.folder_path, file)
 
             if self.execute_mode in ("exe", "py", "sh"):
                 if self.execute != "Not Set.":
@@ -306,6 +308,12 @@ init python in RenpyManager:
             self.update_thumbnail()
 
         def update_thumbnail(self):
+            
+            rm_thumbnail = f"images/thumbnails/{self.name}.png"
+            if renpy.loadable(rm_thumbnail):
+                self._thumbnail = rm_thumbnail
+                return
+
             match self.engine: 
                 case "renpy" | "unity" | "godot" as value:
                     self._thumbnail = f"{value}_thumbnail_placeholder"
@@ -313,15 +321,25 @@ init python in RenpyManager:
                     self._thumbnail = f"thumbnail_placeholder"
             
             if self.engine == "renpy":
-                rm_folder_path = os.path.join(self.path, "game")
+                rm_folder_path = os.path.join(self.folder_path, "game")
 
             else:
-                rm_folder_path = os.path.join(self.path, "rm_project")
+                rm_folder_path = os.path.join(self.folder_path, "rm_project")
     
             if os.path.exists(rm_folder_path):
                 for file in os.listdir(rm_folder_path):
                     if file == "rm_thumbnail.png":
                         self._thumbnail = os.path.join(rm_folder_path, file)
+
+        @property
+        def project_folder(self) -> str:
+            if os.name == "nt":
+                if self.folder_path.endswith("\\"):
+                    return self.folder_path
+                
+                return self.folder_path + "\\"
+
+            return self.folder_path
 
         @property
         def thumbnail(self) -> str:
@@ -402,8 +420,7 @@ init python in RenpyManager:
         def __call__(self):
             Manager.clear_projects_map()
             Manager.find_projects()
-            if Manager.project is not None and not Manager.has_project(Manager.project):
-                Manager.project = None
+            if Manager.project is not None and not Manager.has_project(Manager.project): Manager.project = None
             renpy.restart_interaction()
 
     class CacheProjects(Action):
@@ -433,7 +450,7 @@ init python in RenpyManager:
                 match os.name:
                     case "nt":
                         # Windows, bother only about exe
-                        executable_path = _renpytfd.openFileDialog("Select Executable", self.project.path, ("Supported Formats: ", "*.exe"), None)
+                        executable_path = _renpytfd.openFileDialog("Select Executable", self.project.project_folder, ("Supported Formats: ", "*.exe"), None)
                         
                         if executable_path is None:
                             return
@@ -444,7 +461,7 @@ init python in RenpyManager:
 
                     case "posix":
                         # Linux, Pick everything and fuck it
-                        executable_path = _renpytfd.openFileDialog("Select Executable", self.project.path, (), None)
+                        executable_path = _renpytfd.openFileDialog("Select Executable", self.project.project_folder, (), None)
                         
                         if executable_path is None:
                             return
@@ -457,7 +474,7 @@ init python in RenpyManager:
                 self.project.execute_mode = "custom"
                 if self.project.name == "Unknown":
                     self.project.name = pathlib.Path(executable_path).stem
-                Manager.cache_projects[self.project.path] = vars(self.project)
+                Manager.cache_projects[self.project.folder_path] = vars(self.project)
                 renpy.restart_interaction()
 
             except Exception as e:
@@ -472,12 +489,16 @@ init python in RenpyManager:
                 default_thumbnail = self.project._thumbnail
 
             else:
-                default_thumbnail = self.project.path
+                default_thumbnail = self.project.project_folder
 
             thumbnail_path = _renpytfd.openFileDialog("Select Thumbnail Image", default_thumbnail, ("Supported Formats: ", *const.VALID_IMGS), None)
 
             if thumbnail_path is not None:
-                renpy.call_in_new_context("crop_thumbnail", "Do you want to crop this image?", self.project, thumbnail_path)
+                if os.name == "nt":
+                    thumbnail_path = thumbnail_path.replace("\\", "/")
+
+                if thumbnail_path is not None:
+                    renpy.call_in_new_context("rm_crop_thumbnail", "Do you want to crop this image?", self.project, thumbnail_path)
 
     class SetProjectEngine(Action):
         def __init__(self, project: Project, engine: str):
@@ -489,6 +510,28 @@ init python in RenpyManager:
             self.project.update_thumbnail()
             Manager.move_project(self.project)
             renpy.restart_interaction()
+
+    class AddProject(Action):
+        def __init__(self):
+            pass
+
+        def __call__(self):
+            renpy.call_in_new_context("rm_add_project")
+
+    class SelectFolderDialog(Action):
+        def __call__(self):
+            default_path = config.gamedir
+
+            if persistent.rm_default_game_folder is not None:
+                default_path = persistent.rm_default_game_folder
+
+            game_folder = _renpytfd.selectFolderDialog("Select Default Game Folder", default_path)
+
+            if game_folder is not None:
+                persistent.rm_default_game_folder = game_folder
+
+                if os.name == "nt":
+                    persistent.rm_default_game_folder = game_folder + "\\"
 
     def filter_paths(lines: list[str]) -> list[str]:
         return [x.rstrip() for x in lines if (not match(r"\s+$", x) and not match(const.COMMENT, x))]
