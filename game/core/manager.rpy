@@ -435,11 +435,11 @@ init python in RenpyManager:
                         # Windows, bother only about exe
                         executable_path = _renpytfd.openFileDialog("Select Executable", self.project.path, ("Supported Formats: ", "*.exe"), None)
                         
-                        if not executable_path.endswith(".exe") and not (os.path.isfile(executable_path) and os.access(executable_path, os.X_OK)):
-                            renpy.notify("Invalid executable: `.exe`")
+                        if executable_path is None:
                             return
 
-                        if executable_path is None:
+                        if not executable_path.endswith(".exe") and not (os.path.isfile(executable_path) and os.access(executable_path, os.X_OK)):
+                            renpy.notify("Invalid executable: `.exe`")
                             return
 
                     case "posix":
