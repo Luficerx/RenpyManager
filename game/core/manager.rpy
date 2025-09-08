@@ -10,7 +10,7 @@ init python in const:
     
     VALID_FMT = ("exe", "sh", "py")
 
-    VALID_IMGS = ("*.png", "*.webm", "*.jpg", "*.avif", "*.svg")
+    VALID_IMGS = ("*.png", "*.webp", "*.jpg", "*.avif", "*.svg")
 
     THUMBNAIL_PLACEHOLDERS = (
         "thumbnail_placeholder",
@@ -37,6 +37,9 @@ init python in RenpyManager:
     # HACK: This is the most satanic way of fixing a renpy system problem.
     SNARKY_PREFIX = "../" * len(list(filter(lambda x: x, config.gamedir.split("/"))))
 
+    if persistent.rm_execute_mode is None and os.name == "posix":
+        persistent.rm_execute_mode = "sh"
+
     def snark(path: str, *extra: tuple[bool]) -> str:
         if os.name == "posix" and persistent.rm_snark_hack and all(extra):
             return SNARKY_PREFIX + path
@@ -47,28 +50,24 @@ init python in RenpyManager:
             self.project = None
 
             self.projects_map = {"renpy": [], "unity": [], "godot": [], "rpgm": [], "unreal": [], "projects": []}
+            self.engines = {"projects": True, "renpy": True, "unity": True, "godot": True, "rpgm": True, "unreal": True}
             self.search = ""
 
             self.cache_projects = self.get_projects_from_cache()
             self.stars_query = 0.0
 
+            self.by_pinned = False
+            self.by_stars = False
+
             self.process = []
-        
-        @property
-        def engines(self) -> dict[str, bool]:
-            return persistent.rm_engines
-
-        @engines.setter
-        def engines(self, value: dict[str, bool]) -> dict[str, bool]:
-            persistent.rm_engines = value
-
-        @property
-        def others(self):
-            return persistent.rm_others
 
         @property
         def tags(self) -> dict[str, bool]:
             return persistent.rm_tags
+
+        @tags.setter
+        def tags(self, value: dict[str, bool]) -> dict[str, bool]:
+            persistent.rm_tags = value
 
         @property
         def tags_az(self) -> list[str]:
@@ -76,10 +75,6 @@ init python in RenpyManager:
             a.sort()
             return a
 
-        @tags.setter
-        def tags(self, value: dict[str, bool]) -> dict[str, bool]:
-            persistent.rm_tags = value
-            
         @property
         def projects(self) -> list:
             projects = []
@@ -87,15 +82,15 @@ init python in RenpyManager:
 
             tags = [x for x in self.tags if self.tags[x]]
 
-            for key in self.engines:
+            for key in self.projects_map:
                 if self.engines[key]: projects.extend(self.projects_map[key])
 
             projects = [p for p in projects if self.search in p.name]
 
-            if self.others["pinned"]:
-                projects = [p for p in projects if p.pinned]
+            if self.by_pinned:
+                projects = [p for p in projects if p.by_pinned]
                 
-            if self.others["stars_query"]:
+            if self.by_stars:
                 projects = [p for p in projects if p.stars == self.stars_query]
 
             if tags:
@@ -126,12 +121,25 @@ init python in RenpyManager:
             renpy.restart_interaction()
 
         def get_all_projects(self) -> list[Project]:
-            return sum(self.projects_map.values(), start=[])
+            items = []
+            
+            for key in self.projects_map:
+                items.extend(self.projects_map[key])
+
+            return items
 
         def clear_projects_map(self):
-            self.projects_map = {key: [] for key in const.DIRECTIVES}
+            self.projects_map = {key: [] for key in self.projects_map}
 
         def find_projects(self):
+            for (key, value) in self.cache_projects.items():
+                if os.path.exists(key):
+                    project = Project().setattrs(**value)#.update()
+                    if project.engine == "Unknown":
+                        self.projects_map["projects"].append(project)
+                    else:
+                        self.projects_map[project.engine].append(project)
+
             with open(os.path.join(config.basedir, "projects.txt"), "a+") as fl:
                 fl.seek(0)
                 symbol = None
@@ -149,24 +157,17 @@ init python in RenpyManager:
 
                                     for file in files:
                                         folder_path = os.path.join(path, file)
+
                                         if not os.path.isdir(folder_path): continue
                                         if folder_path in self.get_all_projects(): continue
                                         
                                         project = Project()
-                                        if folder_path in self.cache_projects:
-                                            project.setattrs(**self.cache_projects[folder_path])
-                                            key = "projects" if project.engine == "Unknown" else project.engine
-                                            self.projects_map[key].append(project)
-                                            continue
-
-                                        project.setattrs(
-                                            folder_path=folder_path
-                                            ).update()
+                                        project.setattrs(folder_path=folder_path).update()
                                         self.projects_map["projects"].append(project)
 
                         case "RENPY" | "UNITY" | "GODOT" | "RPGM" | "UNREAL" as value:
                             project = Project()
-                            self.add_project(project, value.lower(), match2(const.PATH, path))
+                            self.make_project(project, value.lower(), match2(const.PATH, path))
 
                         case None:
                             pass
@@ -177,15 +178,15 @@ init python in RenpyManager:
                         symbol = current_symbol
                         continue
 
-        def add_project(self, project: Project, key: str, re_match):
+        def add_project(self, project: Project):
+            key = "projects" if project.engine == "Unknown" else project.engine
+            self.projects_map[key].append(project)
+
+        def make_project(self, project: Project, key: str, re_match):
             if re_match:
                 folder_path = re_match.group(1)
                 args = re_match.group(2) or ""
-                
-                if folder_path in self.cache_projects:
-                    project.setattrs(**self.cache_projects[folder_path])
-                    self.projects_map[project.engine].append(project)
-                    return
+                if folder_path in self.get_all_projects(): return
 
                 project.setattrs(
                     folder_path=folder_path,
@@ -302,10 +303,12 @@ init python in RenpyManager:
                         self.executers[value] = os.path.join(self.folder_path, file)
 
             if self.execute_mode in ("exe", "py", "sh"):
-                if self.execute != "Not Set.":
+                if self.execute != "Unknown":
                     self.name = pathlib.Path(self.execute).stem
 
             self.update_thumbnail()
+
+            return self
 
         def update_thumbnail(self):
             
@@ -350,7 +353,7 @@ init python in RenpyManager:
             if persistent.rm_execute_mode is not None:
                 if (value := self.executers.get(persistent.rm_execute_mode, None)) is not None:
                     return value
-            return self.executers.get(self.execute_mode, "Not Found.")
+            return self.executers.get(self.execute_mode, "Unknown")
 
         @property
         def execute_s(self):
@@ -511,10 +514,7 @@ init python in RenpyManager:
             Manager.move_project(self.project)
             renpy.restart_interaction()
 
-    class AddProject(Action):
-        def __init__(self):
-            pass
-
+    class CreateProject(Action):
         def __call__(self):
             renpy.call_in_new_context("rm_add_project")
 
@@ -522,16 +522,16 @@ init python in RenpyManager:
         def __call__(self):
             default_path = config.gamedir
 
-            if persistent.rm_default_game_folder is not None:
-                default_path = persistent.rm_default_game_folder
+            if persistent.rm_default_games_folder is not None:
+                default_path = persistent.rm_default_games_folder
 
             game_folder = _renpytfd.selectFolderDialog("Select Default Game Folder", default_path)
 
             if game_folder is not None:
-                persistent.rm_default_game_folder = game_folder
+                persistent.rm_default_games_folder = game_folder
 
                 if os.name == "nt":
-                    persistent.rm_default_game_folder = game_folder + "\\"
+                    persistent.rm_default_games_folder = game_folder + "\\"
 
     def filter_paths(lines: list[str]) -> list[str]:
         return [x.rstrip() for x in lines if (not match(r"\s+$", x) and not match(const.COMMENT, x))]
@@ -551,3 +551,5 @@ init python in RenpyManager:
 
     Manager = ProjectManager()
     Manager.find_projects()
+
+    config.at_exit_callbacks = [CacheProjects()]

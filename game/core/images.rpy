@@ -96,6 +96,10 @@ image checker_icon_on:
     "images/icons/checker_on_icon.png"
     yalign 0.5 xysize (26, 26)
 
+image preview_add_icon = DynamicDisplayable(colorize_preview, "images/icons/add_icon.png")
+image preview_reload_icon = DynamicDisplayable(colorize_preview, "images/icons/reload_icon.png")
+image preview_save_icon = DynamicDisplayable(colorize_preview, "images/icons/save_icon.png")
+
 image thumbnail_placeholder = Fixed(Gradient(), Transform("images/logos/placeholder_logo.png", align=(0.5, 0.5), matrixcolor=ColorizeMatrix("#ACACAC", "000"), zoom=0.4))
 image logo_placeholder = Transform("images/logos/placeholder_logo.png", align=(0.5, 0.5), matrixcolor=ColorizeMatrix("#ACACAC", "000"), zoom=0.5)
 

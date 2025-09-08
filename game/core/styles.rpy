@@ -28,3 +28,8 @@ style rm_vsrollbar is vscrollbar:
 
     hover_base_bar Transform(Solid(persistent.rm_ui_color), alpha=0.3)
     hover_thumb Transform(Solid(persistent.rm_ui_color), alpha=0.6)
+
+style color_picker_text_style is default_button_style
+style color_picker_text_style:
+    outlines [(2, "000", 0, 0)]
+    bold True kerning 1

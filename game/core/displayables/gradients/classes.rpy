@@ -11,7 +11,7 @@ init python early:
             super(Gradient, self).__init__(*args, **kwargs)
 
             self.size = size
-            self.top_left, self.top_right, self.bottom_left, self.bottom_right = validate_gradient_colors(colors)
+            self.top_left, self.top_right, self.bottom_left, self.bottom_right = validate_colors(colors)
 
         def __eq__(self, other):
             if type(other) is Gradient:

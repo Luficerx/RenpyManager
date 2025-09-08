@@ -7,11 +7,10 @@ default persistent.rm_ui_color = "#FFFFFF"
 # CONFIG
 default persistent.rm_execute_mode = None
 default persistent.rm_view_mode = "list+"
+default persistent.rm_save_on_add = False
 default persistent.rm_auto_save = False
 default persistent.rm_json_timer = 2
 default persistent.rm_snark_hack = True
-default persistent.rm_engines = {"projects": True, "renpy": True, "unity": True, "godot": True, "rpgm": True, "unreal": True}
-default persistent.rm_others = {"pinned": False, "stars_query": False}
 default persistent.rm_tags = {
     "ai cg": False,
     "2d": False,

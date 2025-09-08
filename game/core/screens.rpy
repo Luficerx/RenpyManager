@@ -1,5 +1,9 @@
+default RadialCanvas = ColorGradient((125, 125), outline="#464646")
+default RadialSpectrum = SpectrumRadialGradient(RadialCanvas, 117.0, 1.5, 16.0, "#000000")
+
 screen RMProjectViewer():
-    default Manager = RenpyManager.Manager
+    $ Manager = RenpyManager.Manager
+
     default search_input = FieldInputValue(Manager, "search", default=False)
     default name_input = FieldInputValue(Manager, "project.name", default=False)
     default version_input = FieldInputValue(Manager, "project.version", default=False)
@@ -29,9 +33,6 @@ screen RMProjectViewer():
                     idle Transform("icon_gear_idle", xysize=(40, 40)) hover Transform("icon_gear_hover", xysize=(40, 40))
                     action SetLocalVariable("mode", "config") yalign 1.0
 
-                imagebutton:
-                    idle Transform("icon_save_idle", xysize=(40, 40)) hover Transform("icon_save_hover", xysize=(40, 40))
-                    action RenpyManager.CacheProjects()
 
                 imagebutton:
                     align (1.0, 0.5)
@@ -43,16 +44,15 @@ screen RMProjectViewer():
                 imagebutton:
                     align (1.0, 0.5)
                     idle Transform("icon_add_idle", xysize=(40, 40)) hover Transform("icon_add_hover", xysize=(40, 40))
-                    action RenpyManager.AddProject()
+                    action RenpyManager.CreateProject()
 
                 imagebutton:
-                    align (1.0, 0.5)
-                    idle Transform("icon_add_multi_idle", xysize=(40, 40)) hover Transform("icon_add_multi_hover", xysize=(40, 40))
-                    action NullAction()
+                    idle Transform("icon_save_idle", xysize=(40, 40)) hover Transform("icon_save_hover", xysize=(40, 40))
+                    action RenpyManager.CacheProjects()
 
                 imagebutton:
                     idle Transform("icon_reload_idle", xysize=(40, 40)) hover Transform("icon_reload_hover", xysize=(40, 40))
-                    action RenpyManager.RefreshManager(), Notify("Reloading Projects...")
+                    action (RenpyManager.RefreshManager(), Notify("Reloading Projects..."))
                 
             hbox:
                 align (0.5, 0.5) spacing 10
@@ -140,20 +140,17 @@ screen RMProjectViewer():
                         hbox:
                             style_prefix "rm_check"
                             button:
-                                action ToggleDict(Manager.others, "pinned", True, False)
+                                action ToggleField(Manager, "by_pinned", True, False)
                                 text "By Pinned"
 
                             button:
-                                action ToggleDict(Manager.others, "stars_query", True, False)
+                                action ToggleField(Manager, "by_stars", True, False)
                                 text "By Stars"
 
         vpgrid:
             draggable True mousewheel "horizontal"
-            viewport_xsize 1025 rows 2 spacing 8 align (0.5, 1.0) yoffset -30
-
-            scrollbars "horizontal"
-            scrollbar_xysize (850, 5) scrollbar_xalign 0.5 scrollbar_yoffset 15
-            scrollbar_unscrollable "hide"
+            xysize (1025, 508) rows 2 spacing 8 align (0.5, 1.0) yoffset -30
+            id "projects_vp"
 
             for project in Manager.projects:
                 button:
@@ -169,6 +166,9 @@ screen RMProjectViewer():
                     
                     action SetField(Manager, "project", project)
 
+        if Manager.projects:
+            bar value XScrollValue("projects_vp") xysize (850, 5) align (0.5, 1.0) yoffset -15 unscrollable "hide"
+
         if Manager.project:
             frame:
                 align (0.5, 0.0) yoffset 100 xysize (1025, 380) padding (7, 7)
@@ -176,7 +176,7 @@ screen RMProjectViewer():
                 fixed:
                     xysize (372, 371) yalign 0.5
                     add RoundedImage(Manager.project.thumbnail, (370, 370), 20) align (0.5, 0.5)
-                    add AlphaGradientMask(RoundedImage("black", (372, 371), 20), direction=4, force=0.4) align (0.5, 0.5)
+                    add AlphaGradientMask(RoundedImage("black", (372, 185), 20), direction=4, force=0.8) align (0.5, 1.0)
 
                     fixed:
                         xysize (181, 35) align (0.5, 1.0) yoffset -5
@@ -250,39 +250,41 @@ screen RMProjectViewer():
 
                 spacing 20
                 
-                vbox:
+                hbox:
                     spacing 10
-                    text "Tags" xoffset 8
-                    frame:
-                        background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), (440, 410), 20, trans_alpha=0.2)
-                        padding (12, 8, 8, 8) xysize (440, 410)
-                        vpgrid:
-                            style_prefix "rm_check"
-                            id "project_tags_vp"
-                            draggable True mousewheel True
-                            xysize (440, 395) cols 2
+                    vbox:
+                        spacing 10
+                        text "Tags" xoffset 8
+                        frame:
+                            background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), (440, 410), 20, trans_alpha=0.2)
+                            padding (12, 8, 8, 8) xysize (440, 410)
+                            vpgrid:
+                                style_prefix "rm_check"
+                                id "project_tags_vp"
+                                draggable True mousewheel True
+                                xysize (440, 395) cols 2
 
-                            for key in Manager.tags_az:
-                                button:
-                                    action If(key in Manager.project.tags, ToggleDict(Manager.project.tags, key, True, False), SetDict(Manager.project.tags, key, True))
-                                    text "[key!c]"
-                                    xsize 205
-                        
-                        vbar value YScrollValue("project_tags_vp") xysize (5, 380) align (1.0, 0.5) xoffset -4 style "rm_vsrollbar"
-                vbox:
-                    spacing 10
-                    text "Engine" xoffset 8
-                    frame:
-                        background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), radius=20, trans_alpha=0.2)
-                        left_padding 12
-                        vbox:
-                            style_prefix "rm_check" box_wrap True
-                            for key in [x for x in Manager.engines if x != "projects"]:
-                                button:
-                                    action RenpyManager.SetProjectEngine(Manager.project, key)
-                                    text "[key!c]"
-                                    xsize 120
-                                    selected Manager.project.engine == key
+                                for key in Manager.tags_az:
+                                    button:
+                                        action If(key in Manager.project.tags, ToggleDict(Manager.project.tags, key, True, False), SetDict(Manager.project.tags, key, True))
+                                        text "[key!c]"
+                                        xsize 205
+                            
+                            vbar value YScrollValue("project_tags_vp") xysize (5, 380) align (1.0, 0.5) xoffset -4 style "rm_vsrollbar"
+                    vbox:
+                        spacing 10
+                        text "Engine" xoffset 8
+                        frame:
+                            background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), radius=20, trans_alpha=0.2)
+                            left_padding 12
+                            vbox:
+                                style_prefix "rm_check" box_wrap True
+                                for key in [x for x in Manager.engines if x != "projects"]:
+                                    button:
+                                        action RenpyManager.SetProjectEngine(Manager.project, key)
+                                        text "[key!c]"
+                                        xsize 120
+                                        selected Manager.project.engine == key
 
             textbutton "Return" align (1.0, 1.0) text_size 45:
                 text_font "fonts/Luis Georce Cafe/Louis George Cafe Bold.ttf"
@@ -300,48 +302,82 @@ screen RMProjectViewer():
         frame:
             align (0.5, 1.0) xysize (990, 990) padding (12, 7, 12, 7) yoffset -15
             background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), (990, 990), 20, trans_alpha=0.2)
+        
+            hbox:
+                style_prefix "rm_check" offset (10, 10) spacing 10
+                vbox:
+                    text "Auto" size 25
+                    null height 5
+                    button:
+                        action ToggleField(persistent, "rm_auto_save", True, False)
+                        text "Enable Auto Caching"
+                        selected persistent.rm_auto_save
+
+                    button:
+                        action ToggleField(persistent, "rm_save_on_add", True, False)
+                        text "Save on Add Project"
+                        selected persistent.rm_save_on_add
+
+                    if renpy.os.name == "posix":
+                        null height 25
+                        text "Launch Options" size 25
+                        null height 5
+                        button:
+                            action ToggleField(persistent, "rm_execute_mode", "sh", None)
+                            text "Prefer '.sh'"
+                            selected persistent.rm_execute_mode == 'sh'
+
+                        button:
+                            action ToggleField(persistent, "rm_execute_mode", "py", None)
+                            text "Prefer '.py'"
+                            selected persistent.rm_execute_mode == 'py'
+
+                        null height 25
+                        text "Path Options" size 25
+                        null height 5
+
+                        button:
+                            action ToggleField(persistent, "rm_snark_hack", "py", None)
+                            text "Enable '../' Prefix"
+                            selected persistent.rm_snark_hack
+                            
+                    null height 25
+                    text "Project Options" size 25
+                    hbox:
+                        text "Default Game Folder: " yalign 0.5
+                        textbutton "[persistent.rm_default_games_folder]":
+                            xsize 400 yalign 0.5 text_size 20
+                            action RenpyManager.SelectFolderDialog()
+                            style "button"
+        
+        frame:
+            align (1.0, 1.0) xysize (285, 990) padding (12, 12, 12, 7) offset (-170, -15)
+            background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), (285, 990), 20, trans_alpha=0.2)
 
             vbox:
-                style_prefix "rm_check" offset (10, 10)
+                style_prefix "rm_check" xalign 0.5
+
+                null height 10
+                text "UI Buttons Color" size 25 xalign 0.5
+                null height 10
                 
-                text "Auto Cache" size 25
-                null height 5
-                button:
-                    action ToggleField(persistent, "rm_auto_save", True, False)
-                    text "Enable Auto Caching"
-                    selected persistent.rm_auto_save
+                fixed:
+                    fit_first True xalign 0.5
+                    add HollowCircle("#000000", 119.0, 1.75, 25.0) align (0.5, 0.5)
+                    add RadialSpectrum align (0.5, 0.5)
+                    add RadialCanvas align (0.5, 0.5)
 
-                if renpy.os.name == "posix":
-                    null height 25
-                    text "Launch Options" size 25
-                    null height 5
-                    button:
-                        action ToggleField(persistent, "rm_execute_mode", "sh", None)
-                        text "Prefer '.sh'"
-                        selected persistent.rm_execute_mode == 'sh'
+                null height 20
+                text "Preview" size 25 xalign 0.5
+                null height 15
 
-                    button:
-                        action ToggleField(persistent, "rm_execute_mode", "py", None)
-                        text "Prefer '.py'"
-                        selected persistent.rm_execute_mode == 'py'
-
-                    null height 25
-                    text "Path Options" size 25
-                    null height 5
-
-                    button:
-                        action ToggleField(persistent, "rm_snark_hack", "py", None)
-                        text "Enable '../' Prefix"
-                        selected persistent.rm_snark_hack
-                        
-                null height 25
-                text "Project Options" size 25
                 hbox:
-                    text "Default Game Folder: " yalign 0.5
-                    textbutton "[persistent.rm_default_game_folder]":
-                        xsize 400 yalign 0.5
-                        action RenpyManager.SelectFolderDialog()
-                        style "button"
+                    box_wrap True xalign 0.5 spacing 10
+                    add "preview_add_icon"
+                    add "preview_reload_icon"
+                    add "preview_save_icon"
+                
+                textbutton "Apply" action (SetVariable("persistent.rm_ui_color", RadialCanvas.color), Manager.refresh) style "button" xalign 0.5 selected False
 
 screen RMAbout():
     dismiss action Hide(transition=Dissolve(0.2))
@@ -391,17 +427,97 @@ screen RMThumbnailCrop(image, project):
         text_font "fonts/Luis Georce Cafe/Louis George Cafe Bold.ttf"
         action Return(thumbnail)
 
-screen RMAddProject():
+screen RMAddProject(project):
     modal True
+
+    default name_input = FieldInputValue(project, "name", default=False)
+    default version_input = FieldInputValue(project, "version", default=False)
+    
+    $ Manager = RenpyManager.Manager
 
     add Gradient(colors=("#211832", "#2d1313", "#2d1313", "#211832"))
 
-    hbox:
-        align (0.5, 1.0) yoffset -10 spacing 20
-        textbutton "Cancel":
-            text_font "fonts/Luis Georce Cafe/Louis George Cafe Bold.ttf" text_size 30
-            action Return()
+    frame:
+        align (0.5, 0.5) xysize (1025, 1025) padding (7, 7)
+        background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), (1025, 1025), 20, trans_alpha=0.2)
 
-        textbutton "Add":
-            text_font "fonts/Luis Georce Cafe/Louis George Cafe Bold.ttf" text_size 30
-            action Return()
+        frame:
+            background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), (625, 370), 20, trans_alpha=0.2)
+            padding (12, 7, 12, 7)
+            xpos 385
+            vbox:
+                hbox:
+                    text "Name: " yalign 0.5
+                    button:
+                        yalign 0.5
+                        input value name_input changed Manager.refresh:
+                            size 27 yalign 0.5 pixel_width 380 yoffset 2
+                        action name_input.Toggle()
+
+                hbox:
+                    text "Version: " yalign 0.5
+                    button:
+                        yalign 0.5
+                        input value version_input changed Manager.refresh:
+                            size 27 yalign 0.5 pixel_width 380 yoffset 2
+                        action version_input.Toggle()
+
+                hbox:
+                    text "Executable: " yalign 0.5
+                    textbutton "[project.execute_s]":
+                        action RenpyManager.SelectExecutableDialog(project)
+                        selected False yalign 0.5
+
+        vbox:
+            button:
+                xysize (370, 370)
+                background RoundedImage(project.thumbnail, (370, 370), radius=20)
+                action RenpyManager.SelectThumbnailDialog(project)
+
+            spacing 20
+            
+            hbox:
+                spacing 10
+                vbox:
+                    spacing 10
+                    text "Tags" xoffset 8
+                    frame:
+                        background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), (440, 410), 20, trans_alpha=0.2)
+                        padding (12, 8, 8, 8) xysize (440, 410)
+                        vpgrid:
+                            style_prefix "rm_check"
+                            id "project_tags_vp"
+                            draggable True mousewheel True
+                            xysize (440, 395) cols 2
+
+                            for key in Manager.tags_az:
+                                button:
+                                    action If(key in project.tags, ToggleDict(project.tags, key, True, False), SetDict(project.tags, key, True))
+                                    text "[key!c]"
+                                    xsize 205
+                        
+                        vbar value YScrollValue("project_tags_vp") xysize (5, 380) align (1.0, 0.5) xoffset -4 style "rm_vsrollbar"
+                vbox:
+                    spacing 10
+                    text "Engine" xoffset 8
+                    frame:
+                        background RoundedImage(Gradient(colors=("#77cbd3", "#283149", "#77cbd3", "#283149")), radius=20, trans_alpha=0.2)
+                        left_padding 12
+                        vbox:
+                            style_prefix "rm_check" box_wrap True
+                            for key in [x for x in Manager.engines if x != "projects"]:
+                                button:
+                                    action RenpyManager.SetProjectEngine(project, key)
+                                    text "[key!c]"
+                                    xsize 120
+                                    selected project.engine == key
+
+        hbox:
+            align (0.5, 1.0) yoffset -10 spacing 20
+            textbutton "Cancel":
+                text_font "fonts/Luis Georce Cafe/Louis George Cafe Bold.ttf" text_size 30
+                action Return(None)
+
+            textbutton "Add":
+                text_font "fonts/Luis Georce Cafe/Louis George Cafe Bold.ttf" text_size 30
+                action Return(project)
